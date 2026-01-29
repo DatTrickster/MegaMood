@@ -2,17 +2,14 @@ name: Discord notification on commit
 
 on:
   push:
-    branches: [main, master]
+    branches:
+      - "**"
 
 jobs:
-  notify:
+  discord-notify:
+    name: Notify Discord on push
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
       - name: Send Discord notification
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_NOTIFICATIONS }}
@@ -33,9 +30,9 @@ jobs:
             const url = process.env.COMMIT_URL || '';
             const payload = {
               embeds: [{
-                title: 'New commit',
+                title: 'Push to MegaMood',
                 description: '**' + process.env.REPO + '** (\`' + process.env.BRANCH + '\`)',
-                color: 16744448,
+                color: 16753920,
                 fields: [
                   { name: 'Message', value: msg || '(no message)', inline: false },
                   { name: 'Author', value: process.env.AUTHOR || '—', inline: true },

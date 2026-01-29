@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   StyleSheet,
   Text,
@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
   ScrollView,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors, spacing, typography } from '../constants/theme';
 import type { User } from '../models/User';
@@ -19,6 +19,7 @@ import CalendarSection from '../components/CalendarSection';
 import EventsNotesSection from '../components/EventsNotesSection';
 import UpcomingEventsBanner from '../components/UpcomingEventsBanner';
 import DailyMotivationCard from '../components/DailyMotivationCard';
+import { getDailyMotivationEnabled } from '../services/motivationService';
 
 type Props = {
   user: User;
@@ -30,7 +31,14 @@ export default function DashboardScreen({ user }: Props) {
   const isDark = useColorScheme() === 'dark';
   const [gaiaVisible, setGaiaVisible] = useState(false);
   const [selectedDate, setSelectedDate] = useState(() => new Date());
+  const [dailyMotivationEnabled, setDailyMotivationEnabled] = useState(false);
   const navigation = useNavigation<Nav>();
+
+  useFocusEffect(
+    useCallback(() => {
+      getDailyMotivationEnabled().then(setDailyMotivationEnabled);
+    }, [])
+  );
 
   return (
     <View style={[styles.container, isDark && styles.containerDark]}>
@@ -62,7 +70,7 @@ export default function DashboardScreen({ user }: Props) {
           Hi, {user.preferredUsername}
         </Text>
 
-        <DailyMotivationCard user={user} />
+        {dailyMotivationEnabled && <DailyMotivationCard user={user} />}
 
         <UpcomingEventsBanner />
 

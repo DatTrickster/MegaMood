@@ -62,7 +62,7 @@ Data is stored locally on device (no cloud account required). AI features and da
 ## CI / GitHub Actions
 
 - **Build APK** (`.github/workflows/build-apk.yml`) — On push to `main`/`master`, release publish, or manual run: builds an Android debug APK with Expo prebuild + Gradle and uploads it as an artifact (`megamood-apk`).
-- **Discord notification** (`.github/workflows/discord-notify.yml`) — On push to `main`/`master`: sends an embed to Discord with commit message, author, and link. Set the repository secret **`DISCORD_NOTIFICATIONS`** to your Discord webhook URL.
+- **Discord notification** (`.github/workflows/discord-notify.yml`) — On push to **any branch**: sends an orange embed to Discord with branch, commit message, author, and commit link. Set the repository secret **`DISCORD_NOTIFICATIONS`** to your Discord webhook URL.
 
 ---
 
