@@ -1,11 +1,10 @@
-import React, { useCallback, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ActivityIndicator,
   useColorScheme,
-  useFocusEffect,
 } from 'react-native';
 import type { User } from '../models/User';
 import { colors, spacing, typography, borderRadius } from '../constants/theme';
@@ -23,27 +22,25 @@ export default function DailyMotivationCard({ user }: Props) {
   const [text, setText] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useFocusEffect(
-    useCallback(() => {
-      let cancelled = false;
-      (async () => {
-        const cached = await getMotivationForToday();
-        if (cancelled) return;
-        if (cached) {
-          setText(cached);
-          setLoading(false);
-          return;
-        }
-        const fresh = await fetchAndSaveMotivationForToday(user);
-        if (cancelled) return;
-        setText(fresh ?? null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const cached = await getMotivationForToday();
+      if (cancelled) return;
+      if (cached) {
+        setText(cached);
         setLoading(false);
-      })();
-      return () => {
-        cancelled = true;
-      };
-    }, [user.preferredUsername, user.lifestyleGoals?.join(',')])
-  );
+        return;
+      }
+      const fresh = await fetchAndSaveMotivationForToday(user);
+      if (cancelled) return;
+      setText(fresh ?? null);
+      setLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user.preferredUsername, user.lifestyleGoals?.join(',')]);
 
   if (loading) {
     return (
