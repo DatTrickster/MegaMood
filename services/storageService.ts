@@ -5,6 +5,7 @@ import { clearAIBuddySettings } from './aiBuddySettingsService';
 import { clearWeatherLocationSettings } from './weatherLocationSettings';
 import { clearMotivationData } from './motivationService';
 import { clearGaiaChat } from './gaiaChatService';
+import { clearAllPlannerItems } from './plannerStorage';
 
 const USER_FILE = 'user.json';
 
@@ -74,6 +75,7 @@ export async function destroyAllUserData(): Promise<void> {
     clearWeatherLocationSettings(),
     clearMotivationData(),
     clearGaiaChat(),
+    clearAllPlannerItems(),
   ]);
   await deleteUser();
 }

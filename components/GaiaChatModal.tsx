@@ -20,6 +20,7 @@ import type { ChatMessage } from '../models/ChatMessage';
 import type { User } from '../models/User';
 import { loadGaiaChat, saveGaiaChat } from '../services/gaiaChatService';
 import { loadAIBuddySettings } from '../services/aiBuddySettingsService';
+import { addPlannerItem, type PlannerItemType } from '../services/plannerStorage';
 
 const MEDICAL_DISCLAIMER =
   "I'm not a medical advisor. Any advice I give is for general wellness only—please recheck and validate anything important. " +
@@ -56,13 +57,58 @@ function buildGaiaSystemPrompt(user: User | null): string {
     '- Do NOT use tables. Use bullet points or numbered lists instead.',
     '- Do NOT use emojis.',
     '- Use bullet points (- or *) to organize information clearly.',
-    '- Keep responses concise and easy to read on mobile.'
+    '- Keep responses concise and easy to read on mobile.',
+    '',
+    '## Planner (meals, workout, mind & body)',
+    '- The user has a Planner with: Meals, Workouts, Mind & Body.',
+    '- Plan only for **today and future dates**. Never add planner items for past dates. You may use past chat context to understand preferences, but do not schedule anything in the past.',
+    '- When they ask you to add something to their meal plan, workout plan, or mind/body plan, you MUST output a planner-add block. Use today (YYYY-MM-DD) if they say "today" or no date; otherwise use the future date they specify.',
+    '- Output exactly one line per add, in this exact format (no line breaks inside):',
+    '  [PLANNER_ADD]{"type":"meal"|"workout"|"mindbody","date":"YYYY-MM-DD","content":"short description"}[/PLANNER_ADD]',
+    '- Use "meal", "workout", or "mindbody" for type. Keep content brief.',
+    '- You may output the block at the start of your reply, then your normal supportive message. Do not mention the block to the user.',
+    '- If they ask to alter or remove something, acknowledge it and say they can remove it from the Planner tab; you cannot edit existing planner items.'
   );
   return lines.join('\n');
 }
 
 function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+const PLANNER_ADD_RE = /\[PLANNER_ADD\](.+?)\[\/PLANNER_ADD\]/gs;
+
+interface PlannerAdd {
+  type: PlannerItemType;
+  date: string;
+  content: string;
+}
+
+function parsePlannerAddsAndStrip(raw: string): { adds: PlannerAdd[]; stripped: string } {
+  const adds: PlannerAdd[] = [];
+  let stripped = raw;
+  let m: RegExpExecArray | null;
+  const re = new RegExp(PLANNER_ADD_RE.source, 'g');
+  while ((m = re.exec(raw)) !== null) {
+    try {
+      const j = JSON.parse(m[1].trim()) as { type?: string; date?: string; content?: string };
+      const type = j.type;
+      const date = j.date;
+      const content = typeof j.content === 'string' ? j.content.trim() : '';
+      if (
+        (type === 'meal' || type === 'workout' || type === 'mindbody') &&
+        typeof date === 'string' &&
+        /^\d{4}-\d{2}-\d{2}$/.test(date) &&
+        content.length > 0
+      ) {
+        adds.push({ type: type as PlannerItemType, date, content });
+      }
+    } catch {
+      /* ignore invalid JSON */
+    }
+  }
+  stripped = raw.replace(PLANNER_ADD_RE, '').replace(/\n{3,}/g, '\n\n').trim();
+  return { adds, stripped };
 }
 
 // Fallback when AI Buddy is off or API fails
@@ -173,10 +219,23 @@ export default function GaiaChatModal({ visible, onClose, user }: Props) {
       gaiaContent = getGaiaPlaceholder(text);
     }
 
+    const today = new Date().toISOString().slice(0, 10);
+    const { adds, stripped } = parsePlannerAddsAndStrip(gaiaContent);
+    const addsFuture = adds.filter((a) => a.date >= today);
+    for (const a of addsFuture) {
+      try {
+        await addPlannerItem({ type: a.type, date: a.date, content: a.content });
+      } catch (e) {
+        console.warn('Planner add failed', e);
+      }
+    }
+    const displayContent =
+      stripped.length > 0 ? stripped : addsFuture.length > 0 ? 'Added to your planner.' : gaiaContent;
+
     const assistantMsg: ChatMessage = {
       id: generateId(),
       role: 'assistant',
-      content: gaiaContent,
+      content: displayContent,
       createdAt: new Date().toISOString(),
     };
     const updated = [...next, assistantMsg];

@@ -9,6 +9,7 @@ import {
   Platform,
   Keyboard,
   TouchableWithoutFeedback,
+  Pressable,
 } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -24,10 +25,13 @@ import SettingsIcon from '../components/SettingsIcon';
 import WeatherSection from '../components/WeatherSection';
 import CalendarSection from '../components/CalendarSection';
 import EventsNotesSection from '../components/EventsNotesSection';
+import PlannerSection from '../components/PlannerSection';
 import UpcomingEventsBanner from '../components/UpcomingEventsBanner';
 import DailyMotivationCard from '../components/DailyMotivationCard';
 import { getDailyMotivationEnabled } from '../services/motivationService';
 import { getDatesWithItems } from '../services/eventsNotesStorage';
+
+type DashboardView = 'calendar' | 'planner';
 
 type Props = {
   user: User;
@@ -40,6 +44,7 @@ export default function DashboardScreen({ user }: Props) {
   const insets = useSafeAreaInsets();
   const [gaiaVisible, setGaiaVisible] = useState(false);
   const [selectedDate, setSelectedDate] = useState(() => new Date());
+  const [dashboardView, setDashboardView] = useState<DashboardView>('calendar');
   const [dailyMotivationEnabled, setDailyMotivationEnabled] = useState(false);
   const [datesWithItems, setDatesWithItems] = useState<string[]>([]);
   const navigation = useNavigation<Nav>();
@@ -111,16 +116,67 @@ export default function DashboardScreen({ user }: Props) {
 
             <WeatherSection />
 
-            <CalendarSection
-              selectedDate={selectedDate}
-              onSelectDate={setSelectedDate}
-              datesWithItems={datesWithItems}
-            />
+            <View style={styles.tabsRow}>
+              <Pressable
+                style={[
+                  styles.tab,
+                  dashboardView === 'calendar' && styles.tabActive,
+                  dashboardView === 'calendar' && (isDark ? styles.tabActiveDark : {}),
+                ]}
+                onPress={() => setDashboardView('calendar')}
+              >
+                <Text
+                  style={[
+                    styles.tabText,
+                    { color: isDark ? colors.onSurfaceDark : colors.onSurface },
+                    dashboardView === 'calendar' && styles.tabTextActive,
+                    dashboardView === 'calendar' && { color: colors.primary },
+                  ]}
+                >
+                  Calendar
+                </Text>
+              </Pressable>
+              <Pressable
+                style={[
+                  styles.tab,
+                  dashboardView === 'planner' && styles.tabActive,
+                  dashboardView === 'planner' && (isDark ? styles.tabActiveDark : {}),
+                ]}
+                onPress={() => setDashboardView('planner')}
+              >
+                <Text
+                  style={[
+                    styles.tabText,
+                    { color: isDark ? colors.onSurfaceDark : colors.onSurface },
+                    dashboardView === 'planner' && styles.tabTextActive,
+                    dashboardView === 'planner' && { color: colors.primary },
+                  ]}
+                >
+                  Planner
+                </Text>
+              </Pressable>
+            </View>
 
-            <EventsNotesSection
-              selectedDate={selectedDate}
-              onItemsChange={loadDatesWithItems}
-            />
+            <View style={styles.swappable}>
+              {dashboardView === 'calendar' ? (
+                <>
+                  <CalendarSection
+                    selectedDate={selectedDate}
+                    onSelectDate={setSelectedDate}
+                    datesWithItems={datesWithItems}
+                  />
+                  <EventsNotesSection
+                    selectedDate={selectedDate}
+                    onItemsChange={loadDatesWithItems}
+                  />
+                </>
+              ) : (
+                <PlannerSection
+                  selectedDate={selectedDate}
+                  onDateChange={setSelectedDate}
+                />
+              )}
+            </View>
           </ScrollView>
         </TouchableWithoutFeedback>
 
@@ -184,5 +240,32 @@ const styles = StyleSheet.create({
   },
   greetingDark: {
     color: colors.primaryLight,
+  },
+  tabsRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  tab: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    borderRadius: 8,
+  },
+  tabActive: {
+    backgroundColor: 'rgba(232, 93, 0, 0.12)',
+  },
+  tabActiveDark: {
+    backgroundColor: 'rgba(255, 140, 66, 0.15)',
+  },
+  tabText: {
+    ...typography.labelLarge,
+  },
+  tabTextActive: {
+    fontWeight: '600',
+  },
+  swappable: {
+    minHeight: 100,
   },
 });
