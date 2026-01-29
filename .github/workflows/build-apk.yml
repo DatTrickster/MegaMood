@@ -36,10 +36,17 @@ jobs:
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon
+          ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: megamood-apk
           path: android/app/build/outputs/apk/debug/*.apk
+
+      - name: Upload Gradle problems report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gradle-problems-report
+          path: android/build/reports/problems/
