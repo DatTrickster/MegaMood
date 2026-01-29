@@ -55,3 +55,13 @@ export async function saveAIBuddySettings(settings: AIBuddySettings): Promise<vo
     SecureStore.setItemAsync(KEY_MODEL, settings.model || DEFAULT_MODEL),
   ]);
 }
+
+/** Reset AI Buddy settings to default (used when destroying profile). */
+export async function clearAIBuddySettings(): Promise<void> {
+  await saveAIBuddySettings({
+    enabled: false,
+    apiKey: '',
+    baseUrl: DEFAULT_BASE_URL,
+    model: DEFAULT_MODEL,
+  });
+}

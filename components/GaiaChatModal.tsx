@@ -9,18 +9,106 @@ import {
   FlatList,
   KeyboardAvoidingView,
   Platform,
-  useColorScheme,
   ActivityIndicator,
   ScrollView,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTheme } from '../context/ThemeContext';
 import Markdown, { type RenderRules } from 'react-native-markdown-display';
 import { colors, spacing, typography, borderRadius } from '../constants/theme';
 import type { ChatMessage } from '../models/ChatMessage';
+import type { User } from '../models/User';
 import { loadGaiaChat, saveGaiaChat } from '../services/gaiaChatService';
 import { loadAIBuddySettings } from '../services/aiBuddySettingsService';
+import { addPlannerItem, type PlannerItemType } from '../services/plannerStorage';
+
+const MEDICAL_DISCLAIMER =
+  "I'm not a medical advisor. Any advice I give is for general wellness only—please recheck and validate anything important. " +
+  'If you\'re experiencing any health or mental health issues, please seek professional medical assistance.';
+
+function buildGaiaSystemPrompt(user: User | null): string {
+  const lines: string[] = [
+    'You are Gaia, the MegaMood in-app wellness assistant. Be supportive, warm, and concise.',
+    '',
+    '## Persona (use this to tailor your replies)',
+  ];
+  if (user) {
+    lines.push(`- The user prefers to be called: ${user.preferredUsername || user.name || 'the user'}.`);
+    if (user.lifestyleGoals?.length) {
+      lines.push(`- Their lifestyle goals: ${user.lifestyleGoals.join(', ')}.`);
+    }
+    if (user.gender) lines.push(`- Gender: ${user.gender}.`);
+    if (user.race) lines.push(`- Race/ethnicity: ${user.race}.`);
+    if (user.country) lines.push(`- Country/region: ${user.country}.`);
+    if (user.diet) lines.push(`- Diet: ${user.diet}.`);
+    lines.push('- Offer advice and suggestions that are relevant to their goals and context.');
+  } else {
+    lines.push('- No persona details are available; keep replies general and friendly.');
+  }
+  lines.push(
+    '',
+    '## Important rules',
+    '- You are NOT a medical professional. Do not give medical diagnoses, prescribe, or replace doctors.',
+    '- If the user mentions health problems, mental health struggles, or symptoms, encourage them to see a doctor or qualified professional.',
+    '- Frame any wellness or lifestyle advice as general support only; remind them to validate important decisions with qualified professionals when needed.',
+    '- At the start of a new conversation you may briefly remind them you are not a medical advisor and that they should seek professional care if they have health concerns.',
+    '',
+    '## Formatting rules',
+    '- Do NOT use tables. Use bullet points or numbered lists instead.',
+    '- Do NOT use emojis.',
+    '- Use bullet points (- or *) to organize information clearly.',
+    '- Keep responses concise and easy to read on mobile.',
+    '',
+    '## Planner (meals, workout, mind & body)',
+    '- The user has a Planner with: Meals, Workouts, Mind & Body.',
+    '- Plan only for **today and future dates**. Never add planner items for past dates. You may use past chat context to understand preferences, but do not schedule anything in the past.',
+    '- When they ask you to add something to their meal plan, workout plan, or mind/body plan, you MUST output a planner-add block. Use today (YYYY-MM-DD) if they say "today" or no date; otherwise use the future date they specify.',
+    '- Output exactly one line per add, in this exact format (no line breaks inside):',
+    '  [PLANNER_ADD]{"type":"meal"|"workout"|"mindbody","date":"YYYY-MM-DD","content":"short description"}[/PLANNER_ADD]',
+    '- Use "meal", "workout", or "mindbody" for type. Keep content brief.',
+    '- You may output the block at the start of your reply, then your normal supportive message. Do not mention the block to the user.',
+    '- If they ask to alter or remove something, acknowledge it and say they can remove it from the Planner tab; you cannot edit existing planner items.'
+  );
+  return lines.join('\n');
+}
 
 function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+const PLANNER_ADD_RE = /\[PLANNER_ADD\](.+?)\[\/PLANNER_ADD\]/gs;
+
+interface PlannerAdd {
+  type: PlannerItemType;
+  date: string;
+  content: string;
+}
+
+function parsePlannerAddsAndStrip(raw: string): { adds: PlannerAdd[]; stripped: string } {
+  const adds: PlannerAdd[] = [];
+  let stripped = raw;
+  let m: RegExpExecArray | null;
+  const re = new RegExp(PLANNER_ADD_RE.source, 'g');
+  while ((m = re.exec(raw)) !== null) {
+    try {
+      const j = JSON.parse(m[1].trim()) as { type?: string; date?: string; content?: string };
+      const type = j.type;
+      const date = j.date;
+      const content = typeof j.content === 'string' ? j.content.trim() : '';
+      if (
+        (type === 'meal' || type === 'workout' || type === 'mindbody') &&
+        typeof date === 'string' &&
+        /^\d{4}-\d{2}-\d{2}$/.test(date) &&
+        content.length > 0
+      ) {
+        adds.push({ type: type as PlannerItemType, date, content });
+      }
+    } catch {
+      /* ignore invalid JSON */
+    }
+  }
+  stripped = raw.replace(PLANNER_ADD_RE, '').replace(/\n{3,}/g, '\n\n').trim();
+  return { adds, stripped };
 }
 
 // Fallback when AI Buddy is off or API fails
@@ -68,15 +156,18 @@ async function fetchOllamaReply(
 type Props = {
   visible: boolean;
   onClose: () => void;
+  /** User persona for tailoring Gaia's replies; optional if not on dashboard */
+  user?: User | null;
 };
 
-export default function GaiaChatModal({ visible, onClose }: Props) {
-  const isDark = useColorScheme() === 'dark';
+export default function GaiaChatModal({ visible, onClose, user }: Props) {
+  const { isDark } = useTheme();
+  const insets = useSafeAreaInsets();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [initialLoad, setInitialLoad] = useState(true);
-  const flatListRef = useRef<FlatList>(null);
+  const flatListRef = useRef<FlatList<ChatMessage>>(null);
 
   useEffect(() => {
     if (visible) {
@@ -112,10 +203,11 @@ export default function GaiaChatModal({ visible, onClose }: Props) {
     let gaiaContent: string;
     const settings = await loadAIBuddySettings();
     if (settings.enabled && settings.apiKey.trim()) {
-      const ollamaMessages = [...next].map((m) => ({
-        role: m.role,
-        content: m.content,
-      }));
+      const systemPrompt = buildGaiaSystemPrompt(user ?? null);
+      const ollamaMessages = [
+        { role: 'system', content: systemPrompt },
+        ...next.map((m) => ({ role: m.role, content: m.content })),
+      ];
       const reply = await fetchOllamaReply(
         settings.baseUrl,
         settings.apiKey,
@@ -127,10 +219,23 @@ export default function GaiaChatModal({ visible, onClose }: Props) {
       gaiaContent = getGaiaPlaceholder(text);
     }
 
+    const today = new Date().toISOString().slice(0, 10);
+    const { adds, stripped } = parsePlannerAddsAndStrip(gaiaContent);
+    const addsFuture = adds.filter((a) => a.date >= today);
+    for (const a of addsFuture) {
+      try {
+        await addPlannerItem({ type: a.type, date: a.date, content: a.content });
+      } catch (e) {
+        console.warn('Planner add failed', e);
+      }
+    }
+    const displayContent =
+      stripped.length > 0 ? stripped : addsFuture.length > 0 ? 'Added to your planner.' : gaiaContent;
+
     const assistantMsg: ChatMessage = {
       id: generateId(),
       role: 'assistant',
-      content: gaiaContent,
+      content: displayContent,
       createdAt: new Date().toISOString(),
     };
     const updated = [...next, assistantMsg];
@@ -169,34 +274,58 @@ export default function GaiaChatModal({ visible, onClose }: Props) {
     },
     code_inline: {
       fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-      fontSize: 14,
+      fontSize: 13,
       backgroundColor: codeBg,
       paddingHorizontal: 4,
-      paddingVertical: 2,
+      paddingVertical: 1,
       borderRadius: 4,
     },
     code_block: {
       fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-      fontSize: 13,
+      fontSize: 12,
       backgroundColor: codeBg,
       padding: spacing.sm,
       borderRadius: borderRadius.sm,
       marginVertical: spacing.sm,
-      overflow: 'hidden' as const,
     },
     fence: {
       fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-      fontSize: 13,
+      fontSize: 12,
       backgroundColor: codeBg,
       padding: spacing.sm,
       borderRadius: borderRadius.sm,
       marginVertical: spacing.sm,
-      overflow: 'hidden' as const,
     },
-    heading1: { fontSize: 22, fontWeight: '700' as const, marginTop: spacing.sm, marginBottom: spacing.xs },
-    heading2: { fontSize: 19, fontWeight: '700' as const, marginTop: spacing.sm, marginBottom: spacing.xs },
-    heading3: { fontSize: 17, fontWeight: '600' as const, marginTop: spacing.sm, marginBottom: spacing.xs },
-    list_item: { marginBottom: spacing.xs },
+    heading1: { 
+      fontSize: 20, 
+      fontWeight: '700' as const, 
+      marginTop: spacing.sm, 
+      marginBottom: spacing.xs,
+      color: isDark ? colors.onSurfaceDark : colors.onSurface,
+    },
+    heading2: { 
+      fontSize: 18, 
+      fontWeight: '700' as const, 
+      marginTop: spacing.sm, 
+      marginBottom: spacing.xs,
+      color: isDark ? colors.onSurfaceDark : colors.onSurface,
+    },
+    heading3: { 
+      fontSize: 16, 
+      fontWeight: '600' as const, 
+      marginTop: spacing.sm, 
+      marginBottom: spacing.xs,
+      color: isDark ? colors.onSurfaceDark : colors.onSurface,
+    },
+    bullet_list: {
+      marginVertical: spacing.xs,
+    },
+    ordered_list: {
+      marginVertical: spacing.xs,
+    },
+    list_item: { 
+      marginBottom: spacing.xs,
+    },
     hr: { backgroundColor: tableBorderColor, height: 1, marginVertical: spacing.sm },
     // Tables: compact and scoped so they don’t take over the chat
     table: {
@@ -241,8 +370,29 @@ export default function GaiaChatModal({ visible, onClose }: Props) {
         showsHorizontalScrollIndicator={true}
         contentContainerStyle={mdStyles.tableScrollContent}
         style={mdStyles.tableScroll}
+        key={node.key}
       >
         <View style={[styles.table, { maxWidth: undefined }]}>{children}</View>
+      </ScrollView>
+    ),
+    fence: (node, children, parent, styles) => (
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={true}
+        style={mdStyles.codeScroll}
+        key={node.key}
+      >
+        <Text style={styles.fence}>{node.content}</Text>
+      </ScrollView>
+    ),
+    code_block: (node, children, parent, styles) => (
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={true}
+        style={mdStyles.codeScroll}
+        key={node.key}
+      >
+        <Text style={styles.code_block}>{node.content}</Text>
       </ScrollView>
     ),
   };
@@ -292,7 +442,7 @@ export default function GaiaChatModal({ visible, onClose }: Props) {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={0}
       >
-        <View style={[styles.header, isDark && styles.headerDark]}>
+        <View style={[styles.header, isDark && styles.headerDark, { paddingTop: insets.top + spacing.sm }]}>
           <Text style={[styles.title, isDark && styles.titleDark]}>Gaia</Text>
           <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
             <Text style={[styles.closeText, isDark && styles.closeTextDark]}>
@@ -311,14 +461,31 @@ export default function GaiaChatModal({ visible, onClose }: Props) {
             data={messages}
             keyExtractor={(item) => item.id}
             renderItem={renderMessage}
-            contentContainerStyle={styles.listContent}
+            style={styles.flatList}
+            contentContainerStyle={[
+              styles.listContent,
+              messages.length === 0 && styles.listContentEmpty,
+            ]}
             onContentSizeChange={scrollToEnd}
+            onLayout={scrollToEnd}
+            showsVerticalScrollIndicator={true}
+            removeClippedSubviews={false}
             ListEmptyComponent={
               <View style={styles.emptyWrap}>
-                <Text style={[styles.emptyText, isDark && styles.emptyTextDark]}>
-                  Hi! I'm Gaia. Ask me for help with planning or advice — I'll
-                  remember our chat.
+                <Text style={[styles.emptyTitle, isDark && styles.emptyTitleDark]}>
+                  Hi! I'm Gaia, your wellness assistant.
                 </Text>
+                <Text style={[styles.emptyText, isDark && styles.emptyTextDark]}>
+                  Ask me for help with planning, habits, or general advice. I'll tailor replies to you and remember our chat.
+                </Text>
+                <View style={[styles.disclaimerBox, isDark && styles.disclaimerBoxDark]}>
+                  <Text style={[styles.disclaimerTitle, isDark && styles.disclaimerTitleDark]}>
+                    Important
+                  </Text>
+                  <Text style={[styles.disclaimerText, isDark && styles.disclaimerTextDark]}>
+                    {MEDICAL_DISCLAIMER}
+                  </Text>
+                </View>
               </View>
             }
           />
@@ -333,7 +500,7 @@ export default function GaiaChatModal({ visible, onClose }: Props) {
           </View>
         )}
 
-        <View style={[styles.inputRow, isDark && styles.inputRowDark]}>
+        <View style={[styles.inputRow, isDark && styles.inputRowDark, { paddingBottom: Math.max(insets.bottom, spacing.sm) }]}>
           <TextInput
             style={[
               styles.input,
@@ -346,7 +513,7 @@ export default function GaiaChatModal({ visible, onClose }: Props) {
             multiline
             maxLength={2000}
             editable={!loading}
-            onSubmitEditing={sendMessage}
+            blurOnSubmit={false}
           />
           <TouchableOpacity
             style={[styles.sendBtn, (!input.trim() || loading) && styles.sendBtnDisabled]}
@@ -369,6 +536,10 @@ const mdStyles = StyleSheet.create({
   tableScrollContent: {
     flexGrow: 1,
     paddingVertical: spacing.sm,
+  },
+  codeScroll: {
+    maxWidth: '100%',
+    marginVertical: spacing.sm,
   },
 });
 
@@ -414,25 +585,71 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  flatList: {
+    flex: 1,
+  },
   listContent: {
     padding: spacing.md,
-    paddingBottom: spacing.lg,
+    paddingBottom: spacing.xl,
+  },
+  listContentEmpty: {
+    flexGrow: 1,
   },
   emptyWrap: {
     padding: spacing.lg,
     alignItems: 'center',
   },
+  emptyTitle: {
+    ...typography.titleMedium,
+    color: colors.primary,
+    marginBottom: spacing.sm,
+    textAlign: 'center',
+  },
+  emptyTitleDark: {
+    color: colors.primaryLight,
+  },
   emptyText: {
     ...typography.bodyMedium,
     color: colors.onSurface,
-    opacity: 0.8,
+    opacity: 0.9,
     textAlign: 'center',
+    marginBottom: spacing.lg,
   },
   emptyTextDark: {
     color: colors.onSurfaceDark,
   },
+  disclaimerBox: {
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: colors.outline,
+    backgroundColor: 'rgba(232, 93, 0, 0.06)',
+    alignSelf: 'stretch',
+  },
+  disclaimerBoxDark: {
+    borderColor: colors.outlineDark,
+    backgroundColor: 'rgba(255, 140, 66, 0.08)',
+  },
+  disclaimerTitle: {
+    ...typography.labelLarge,
+    color: colors.onSurface,
+    fontWeight: '600',
+    marginBottom: spacing.xs,
+  },
+  disclaimerTitleDark: {
+    color: colors.onSurfaceDark,
+  },
+  disclaimerText: {
+    ...typography.bodyMedium,
+    color: colors.onSurface,
+    opacity: 0.9,
+    fontSize: 13,
+  },
+  disclaimerTextDark: {
+    color: colors.onSurfaceDark,
+  },
   bubbleWrap: {
-    marginBottom: spacing.sm,
+    marginBottom: spacing.md,
   },
   bubbleWrapUser: {
     alignItems: 'flex-end',
@@ -441,7 +658,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   bubble: {
-    maxWidth: '85%',
+    maxWidth: '88%',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderRadius: borderRadius.lg,

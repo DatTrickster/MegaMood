@@ -1,6 +1,7 @@
 import { useFocusEffect } from '@react-navigation/native';
 import React, { useCallback, useEffect, useState } from 'react';
-import { StyleSheet, TouchableOpacity, View, useColorScheme } from 'react-native';
+import { StyleSheet, TouchableOpacity, View } from 'react-native';
+import { useTheme } from '../context/ThemeContext';
 import { colors, spacing } from '../constants/theme';
 import { loadAIBuddySettings } from '../services/aiBuddySettingsService';
 import GaiaChatBubbleIcon from './GaiaChatBubbleIcon';
@@ -10,7 +11,7 @@ type Props = {
 };
 
 export default function GaiaChatBubble({ onPress }: Props) {
-  const isDark = useColorScheme() === 'dark';
+  const { isDark } = useTheme();
   const [visible, setVisible] = useState(false);
 
   const refresh = useCallback(async () => {
@@ -57,7 +58,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    elevation: 4,
+    elevation: 12,
+    zIndex: 1000,
     shadowColor: colors.primaryDark,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,

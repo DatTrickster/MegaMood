@@ -5,11 +5,10 @@ import {
   Pressable,
   StyleSheet,
   Text,
-  TextInput,
   View,
-  useColorScheme,
 } from 'react-native';
-import { colors, spacing, typography, borderRadius } from '../constants/theme';
+import { useTheme } from '../context/ThemeContext';
+import { colors, spacing, typography, borderRadius, cardShadow } from '../constants/theme';
 import {
   addEventOrNote,
   deleteEventOrNote,
@@ -17,18 +16,18 @@ import {
   getEventsAndNotesForDate,
   type EventOrNote,
 } from '../services/eventsNotesStorage';
+import AddEventNoteModal, { type AddEventNoteFormValues } from './AddEventNoteModal';
 
 type Props = {
   selectedDate: Date;
+  onItemsChange?: () => void;
 };
 
-export default function EventsNotesSection({ selectedDate }: Props) {
-  const isDark = useColorScheme() === 'dark';
+export default function EventsNotesSection({ selectedDate, onItemsChange }: Props) {
+  const { isDark } = useTheme();
   const [items, setItems] = useState<EventOrNote[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showAdd, setShowAdd] = useState(false);
-  const [newTitle, setNewTitle] = useState('');
-  const [newType, setNewType] = useState<'event' | 'note'>('event');
+  const [showAddModal, setShowAddModal] = useState(false);
 
   const dateStr = formatDateKey(selectedDate);
 
@@ -43,17 +42,16 @@ export default function EventsNotesSection({ selectedDate }: Props) {
     load();
   }, [load]);
 
-  const handleAdd = async () => {
-    const title = newTitle.trim();
-    if (!title) return;
+  const handleAddSubmit = async (values: AddEventNoteFormValues) => {
     await addEventOrNote({
-      type: newType,
-      date: dateStr,
-      title,
+      type: values.type,
+      date: formatDateKey(values.date),
+      title: values.title,
+      time: values.time || undefined,
+      content: values.content || undefined,
     });
-    setNewTitle('');
-    setShowAdd(false);
     load();
+    onItemsChange?.();
   };
 
   const handleDelete = (item: EventOrNote) => {
@@ -65,6 +63,7 @@ export default function EventsNotesSection({ selectedDate }: Props) {
         onPress: async () => {
           await deleteEventOrNote(item.id);
           load();
+          onItemsChange?.();
         },
       },
     ]);
@@ -85,6 +84,9 @@ export default function EventsNotesSection({ selectedDate }: Props) {
         {item.time && (
           <Text style={[styles.itemTime, { color: textSecondary }]}>{item.time}</Text>
         )}
+        {item.content ? (
+          <Text style={[styles.itemDescription, { color: textSecondary }]} numberOfLines={2}>{item.content}</Text>
+        ) : null}
       </View>
       <Pressable
         onPress={() => handleDelete(item)}
@@ -101,91 +103,20 @@ export default function EventsNotesSection({ selectedDate }: Props) {
         <Text style={[styles.sectionTitle, { color: isDark ? colors.primaryLight : colors.primary }]}>
           Events & Notes
         </Text>
-        {!showAdd ? (
-          <Pressable
-            onPress={() => setShowAdd(true)}
-            style={({ pressed }) => [styles.addBtn, pressed && styles.addBtnPressed]}
-          >
-            <Text style={styles.addBtnText}>+ Add</Text>
-          </Pressable>
-        ) : null}
+        <Pressable
+          onPress={() => setShowAddModal(true)}
+          style={({ pressed }) => [styles.addBtn, pressed && styles.addBtnPressed]}
+        >
+          <Text style={styles.addBtnText}>+ Add</Text>
+        </Pressable>
       </View>
 
-      {showAdd && (
-        <View style={[styles.addCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
-          <TextInput
-            style={[
-              styles.input,
-              {
-                backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : '#f5f5f5',
-                borderColor: cardBorder,
-                color: textPrimary,
-              },
-            ]}
-            value={newTitle}
-            onChangeText={setNewTitle}
-            placeholder="Title"
-            placeholderTextColor={textSecondary}
-            autoFocus
-          />
-          <View style={styles.typeRow}>
-            <Pressable
-              style={[
-                styles.typeBtn,
-                newType === 'event' && styles.typeBtnSelected,
-                newType === 'event' && { backgroundColor: colors.chipSelected },
-              ]}
-              onPress={() => setNewType('event')}
-            >
-              <Text
-                style={[
-                  styles.typeBtnText,
-                  { color: textPrimary },
-                  newType === 'event' && { color: colors.primary, fontWeight: '600' },
-                ]}
-              >
-                Event
-              </Text>
-            </Pressable>
-            <Pressable
-              style={[
-                styles.typeBtn,
-                newType === 'note' && styles.typeBtnSelected,
-                newType === 'note' && { backgroundColor: colors.chipSelected },
-              ]}
-              onPress={() => setNewType('note')}
-            >
-              <Text
-                style={[
-                  styles.typeBtnText,
-                  { color: textPrimary },
-                  newType === 'note' && { color: colors.primary, fontWeight: '600' },
-                ]}
-              >
-                Note
-              </Text>
-            </Pressable>
-          </View>
-          <View style={styles.addActions}>
-            <Pressable
-              style={[styles.cancelBtn, { borderColor: cardBorder }]}
-              onPress={() => {
-                setShowAdd(false);
-                setNewTitle('');
-              }}
-            >
-              <Text style={[styles.cancelBtnText, { color: textPrimary }]}>Cancel</Text>
-            </Pressable>
-            <Pressable
-              style={[styles.saveBtn, !newTitle.trim() && styles.saveBtnDisabled]}
-              onPress={handleAdd}
-              disabled={!newTitle.trim()}
-            >
-              <Text style={styles.saveBtnText}>Add</Text>
-            </Pressable>
-          </View>
-        </View>
-      )}
+      <AddEventNoteModal
+        visible={showAddModal}
+        initialDate={selectedDate}
+        onClose={() => setShowAddModal(false)}
+        onSubmit={handleAddSubmit}
+      />
 
       {loading ? (
         <Text style={[styles.emptyText, { color: textSecondary }]}>Loading…</Text>
@@ -233,62 +164,6 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontWeight: '600',
   },
-  addCard: {
-    padding: spacing.md,
-    borderRadius: borderRadius.md,
-    borderWidth: 1,
-    marginBottom: spacing.md,
-  },
-  input: {
-    borderRadius: borderRadius.sm,
-    borderWidth: 1,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 12,
-    ...typography.bodyLarge,
-    marginBottom: spacing.sm,
-  },
-  typeRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    marginBottom: spacing.sm,
-  },
-  typeBtn: {
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.sm,
-  },
-  typeBtnSelected: {},
-  typeBtnText: {
-    ...typography.bodyMedium,
-  },
-  addActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: spacing.sm,
-  },
-  cancelBtn: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.sm,
-    borderWidth: 1,
-  },
-  cancelBtnText: {
-    ...typography.labelLarge,
-  },
-  saveBtn: {
-    backgroundColor: colors.primary,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.sm,
-  },
-  saveBtnDisabled: {
-    opacity: 0.5,
-  },
-  saveBtnText: {
-    ...typography.labelLarge,
-    color: colors.onPrimary,
-    fontWeight: '600',
-  },
   list: {
     flexGrow: 0,
   },
@@ -300,6 +175,7 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.sm,
     borderWidth: 1,
     marginBottom: spacing.sm,
+    ...cardShadow,
   },
   itemContent: {
     flex: 1,
@@ -316,6 +192,12 @@ const styles = StyleSheet.create({
     ...typography.bodyMedium,
     fontSize: 12,
     marginTop: 2,
+  },
+  itemDescription: {
+    ...typography.bodyMedium,
+    fontSize: 13,
+    marginTop: 4,
+    opacity: 0.9,
   },
   deleteBtn: {
     paddingVertical: spacing.xs,

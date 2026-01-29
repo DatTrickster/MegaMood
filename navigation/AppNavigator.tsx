@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, useColorScheme } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { useTheme } from '../context/ThemeContext';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { loadUser, saveUser } from '../services/storageService';
+import { loadUser, saveUser, destroyAllUserData } from '../services/storageService';
 import type { User } from '../models/User';
 import { colors, typography, spacing } from '../constants/theme';
 import StartScreen from '../screens/StartScreen';
@@ -27,7 +28,7 @@ const MainStack = createNativeStackNavigator<MainStackParamList>();
 export default function AppNavigator() {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const isDark = useColorScheme() === 'dark';
+  const { isDark } = useTheme();
 
   useEffect(() => {
     loadUser().then((u) => {
@@ -67,7 +68,10 @@ export default function AppNavigator() {
           {({ navigation }) => (
             <SettingsScreen
               onBack={() => navigation.goBack()}
-              onNavigateToProfile={() => navigation.navigate('Profile')}
+              onDestroyProfile={async () => {
+                await destroyAllUserData();
+                setUser(null);
+              }}
             />
           )}
         </MainStack.Screen>

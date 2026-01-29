@@ -12,22 +12,22 @@ export const colors = {
   accent: '#FFB088',
   accentSoft: '#FFE4B5',
   // Material-inspired surface
-  surface: 'rgba(255, 255, 255, 0.95)',
-  surfaceDark: 'rgba(40, 30, 25, 0.95)',
-  background: '#FFFFFF',
-  backgroundDark: '#1A1510',
+  surface: 'rgba(250, 249, 247, 0.95)',
+  surfaceDark: '#161b22',
+  background: '#F9F8F6',
+  backgroundDark: '#0d1117',
   // Glass borders
   glassBorder: 'rgba(255, 255, 255, 0.5)',
-  glassBorderDark: 'rgba(255, 255, 255, 0.1)',
+  glassBorderDark: 'rgba(255, 255, 255, 0.08)',
   // Secondary
   secondary: '#E07C2E',
   onSurface: '#1C1B1F',
-  onSurfaceDark: '#E6E1E5',
+  onSurfaceDark: '#e6edf3',
   outline: 'rgba(0, 0, 0, 0.12)',
-  outlineDark: 'rgba(255, 255, 255, 0.12)',
+  outlineDark: '#30363d',
   // Chips
   chipSelected: 'rgba(232, 93, 0, 0.2)',
-  chipSelectedDark: 'rgba(255, 140, 66, 0.25)',
+  chipSelectedDark: 'rgba(255, 140, 66, 0.18)',
 } as const;
 
 export const spacing = {
@@ -63,4 +63,22 @@ export const glassCard = {
   borderWidth: 1,
   overflow: 'hidden',
   padding: spacing.lg,
+} as const;
+
+// Card shadow so sections stand out from background (iOS shadow + Android elevation)
+export const cardShadow = {
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.14,
+  shadowRadius: 8,
+  elevation: 4,
+} as const;
+
+// Softer shadow for weather cards (avoids hard left/bottom border look)
+export const weatherCardShadow = {
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 1 },
+  shadowOpacity: 0.08,
+  shadowRadius: 10,
+  elevation: 3,
 } as const;
