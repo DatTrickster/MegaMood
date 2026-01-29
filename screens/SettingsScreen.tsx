@@ -26,6 +26,11 @@ import {
   saveWeatherLocationSettings,
 } from '../services/weatherLocationSettings';
 import {
+  getDailyMotivationEnabled,
+  setDailyMotivationEnabled,
+  scheduleDailyMotivationNotificationIfEnabled,
+} from '../services/motivationService';
+import {
   searchLocations,
   reverseGeocode,
   type GeocodingResult,
@@ -50,6 +55,7 @@ export default function SettingsScreen({ onBack, onNavigateToProfile }: Props) {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [useMyLocationLoading, setUseMyLocationLoading] = useState(false);
   const [clearChatSaving, setClearChatSaving] = useState(false);
+  const [dailyMotivationEnabled, setDailyMotivationEnabledState] = useState(false);
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const applyLocation = useCallback(async (result: GeocodingResult) => {
@@ -69,11 +75,13 @@ export default function SettingsScreen({ onBack, onNavigateToProfile }: Props) {
     Promise.all([
       loadAIBuddySettings(),
       loadWeatherLocationSettings(),
-    ]).then(([aiSettings, weatherSettings]) => {
+      getDailyMotivationEnabled(),
+    ]).then(([aiSettings, weatherSettings, motivationEnabled]) => {
       setEnabled(aiSettings.enabled);
       setApiKey(aiSettings.apiKey);
       setUsePreciseLocation(weatherSettings.usePreciseLocation);
       setLocationName(weatherSettings.locationName);
+      setDailyMotivationEnabledState(motivationEnabled);
       setLoading(false);
     });
   }, []);
@@ -198,6 +206,28 @@ export default function SettingsScreen({ onBack, onNavigateToProfile }: Props) {
             <Text style={styles.saveBtnText}>Save</Text>
           )}
         </TouchableOpacity>
+
+        <Text style={[styles.sectionTitle, isDark && styles.sectionTitleDark, styles.sectionSpacer]}>
+          Daily motivation
+        </Text>
+        <Text style={[styles.hint, isDark && styles.hintDark]}>
+          When enabled, Gaia sends one motivational message per day (based on your profile and goals). It appears on the dashboard and as a push notification. The AI is only triggered once per day.
+        </Text>
+        <View style={styles.row}>
+          <Text style={[styles.label, isDark && styles.labelDark]}>Daily motivation from Gaia</Text>
+          <Switch
+            value={dailyMotivationEnabled}
+            onValueChange={async (v) => {
+              setDailyMotivationEnabledState(v);
+              await setDailyMotivationEnabled(v);
+              if (v) {
+                scheduleDailyMotivationNotificationIfEnabled();
+              }
+            }}
+            trackColor={{ false: '#ccc', true: colors.primaryLight }}
+            thumbColor={dailyMotivationEnabled ? colors.primary : '#f4f3f4'}
+          />
+        </View>
 
         <Text style={[styles.sectionTitle, isDark && styles.sectionTitleDark, styles.sectionSpacer]}>
           Weather location

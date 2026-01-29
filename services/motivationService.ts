@@ -1,9 +1,13 @@
 import * as FileSystem from 'expo-file-system';
+import * as Notifications from 'expo-notifications';
+import * as SecureStore from 'expo-secure-store';
 import type { User } from '../models/User';
 import { loadAIBuddySettings } from './aiBuddySettingsService';
 import { loadGaiaChat } from './gaiaChatService';
 
 const MOTIVATION_FILE = 'daily_motivation.json';
+const KEY_DAILY_MOTIVATION_ENABLED = 'MEGAMOOD_DAILY_MOTIVATION_ENABLED';
+const DAILY_MOTIVATION_NOTIFICATION_ID = 'daily-motivation-gaia';
 
 function getPath(): string {
   return `${FileSystem.documentDirectory}${MOTIVATION_FILE}`;
@@ -19,6 +23,20 @@ function formatDateKey(d: Date): string {
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
+}
+
+/** Opt-in: daily motivation section and push notification. Default false. */
+export async function getDailyMotivationEnabled(): Promise<boolean> {
+  try {
+    const v = await SecureStore.getItemAsync(KEY_DAILY_MOTIVATION_ENABLED);
+    return v === 'true';
+  } catch {
+    return false;
+  }
+}
+
+export async function setDailyMotivationEnabled(enabled: boolean): Promise<void> {
+  await SecureStore.setItemAsync(KEY_DAILY_MOTIVATION_ENABLED, enabled ? 'true' : 'false');
 }
 
 export async function getMotivationForToday(): Promise<string | null> {
@@ -98,7 +116,54 @@ export async function fetchAndSaveMotivationForToday(user: User): Promise<string
 
   if (reply) {
     await saveMotivationForToday(reply);
+    const enabled = await getDailyMotivationEnabled();
+    if (enabled) {
+      await scheduleMotivationNotification(reply);
+    }
     return reply;
   }
   return null;
+}
+
+/** Schedule a one-time local notification with today's motivation (only when opt-in is enabled). */
+async function scheduleMotivationNotification(motivationText: string): Promise<void> {
+  try {
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({ shouldShowAlert: true, shouldPlaySound: true, shouldSetBadge: false }),
+    });
+    const { status } = await Notifications.requestPermissionsAsync();
+    if (status !== 'granted') return;
+
+    await Notifications.cancelScheduledNotificationAsync(DAILY_MOTIVATION_NOTIFICATION_ID);
+
+    const body = motivationText.length > 200 ? motivationText.slice(0, 197) + '…' : motivationText;
+    const trigger = new Date();
+    const hour = trigger.getHours();
+    const minute = trigger.getMinutes();
+    if (hour < 9 || (hour === 9 && minute === 0)) {
+      trigger.setHours(9, 0, 0, 0);
+    } else {
+      trigger.setTime(trigger.getTime() + 60 * 1000);
+    }
+
+    await Notifications.scheduleNotificationAsync({
+      identifier: DAILY_MOTIVATION_NOTIFICATION_ID,
+      content: {
+        title: "Today's motivation from Gaia",
+        body,
+        data: { screen: 'Dashboard' },
+      },
+      trigger,
+    });
+  } catch {
+    // ignore
+  }
+}
+
+/** Call when we have cached motivation for today and user has opt-in; schedule push so they get it once. */
+export async function scheduleDailyMotivationNotificationIfEnabled(): Promise<void> {
+  const enabled = await getDailyMotivationEnabled();
+  if (!enabled) return;
+  const text = await getMotivationForToday();
+  if (text) await scheduleMotivationNotification(text);
 }

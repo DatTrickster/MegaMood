@@ -102,7 +102,6 @@ export default function ProfileScreen({ user, onBack, onSave }: Props) {
     try {
       await onSave(updated);
       Alert.alert('Saved', 'Profile updated.');
-      onBack();
     } catch {
       Alert.alert('Error', 'Could not save profile.');
     } finally {

@@ -15,6 +15,7 @@ import { loadWeatherLocationSettings } from '../services/weatherLocationSettings
 import {
   fetchWeatherForecast,
   weatherCodeLabel,
+  weatherCodeIcon,
   type WeatherForecast,
 } from '../services/weatherService';
 
@@ -106,28 +107,35 @@ export default function WeatherSection() {
         }
       >
         <View style={[styles.currentCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
-          <Text style={[styles.currentTemp, { color: textPrimary }]}>
-            {Math.round(current.temperature_2m)}°
-          </Text>
+          <View style={styles.currentTop}>
+            <Text style={[styles.currentIcon]}>{todayCode != null ? weatherCodeIcon(todayCode) : '🌡️'}</Text>
+            <Text style={[styles.currentTemp, { color: textPrimary }]}>
+              {Math.round(current.temperature_2m)}°
+            </Text>
+          </View>
           <Text style={[styles.currentLabel, { color: textSecondary }]}>{todayLabel}</Text>
           <Text style={[styles.currentMeta, { color: textMuted }]}>
             Humidity {current.relative_humidity_2m}% · Wind {current.wind_speed_10m} km/h
           </Text>
         </View>
-        {daily.time?.slice(0, 5).map((date, i) => (
-          <View key={date} style={[styles.dayCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
-            <Text style={[styles.dayLabel, { color: textPrimary }]}>
-              {new Date(date).toLocaleDateString('en-US', { weekday: 'short' })}
-            </Text>
-            <Text style={[styles.dayTemp, { color: textSecondary }]}>
-              {daily.temperature_2m_max?.[i] != null ? Math.round(daily.temperature_2m_max[i]) : '—'}° /{' '}
-              {daily.temperature_2m_min?.[i] != null ? Math.round(daily.temperature_2m_min[i]) : '—'}°
-            </Text>
-            <Text style={[styles.dayCode, { color: textMuted }]}>
-              {daily.weather_code?.[i] != null ? weatherCodeLabel(daily.weather_code[i]) : '—'}
-            </Text>
-          </View>
-        ))}
+        {daily.time?.slice(0, 5).map((date, i) => {
+          const code = daily.weather_code?.[i];
+          return (
+            <View key={date} style={[styles.dayCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
+              <Text style={[styles.dayIcon]}>{code != null ? weatherCodeIcon(code) : '🌡️'}</Text>
+              <Text style={[styles.dayLabel, { color: textPrimary }]}>
+                {new Date(date).toLocaleDateString('en-US', { weekday: 'short' })}
+              </Text>
+              <Text style={[styles.dayTemp, { color: textSecondary }]}>
+                {daily.temperature_2m_max?.[i] != null ? Math.round(daily.temperature_2m_max[i]) : '—'}° /{' '}
+                {daily.temperature_2m_min?.[i] != null ? Math.round(daily.temperature_2m_min[i]) : '—'}°
+              </Text>
+              <Text style={[styles.dayCode, { color: textMuted }]}>
+                {code != null ? weatherCodeLabel(code) : '—'}
+              </Text>
+            </View>
+          );
+        })}
       </ScrollView>
     </View>
   );
@@ -158,6 +166,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     marginRight: spacing.sm,
   },
+  currentTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  currentIcon: {
+    fontSize: 32,
+  },
   currentTemp: {
     fontSize: 36,
     fontWeight: '700',
@@ -176,6 +192,11 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.md,
     borderWidth: 1,
     marginRight: spacing.sm,
+    alignItems: 'center',
+  },
+  dayIcon: {
+    fontSize: 28,
+    marginBottom: 4,
   },
   dayLabel: {
     fontSize: 13,
