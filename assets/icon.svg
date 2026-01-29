@@ -1,0 +1,68 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Sunrise sky: deeper orange to golden -->
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FF6B35"/>
+      <stop offset="50%" stop-color="#FF8A1F"/>
+      <stop offset="100%" stop-color="#FFB347"/>
+    </linearGradient>
+    <!-- Card: warm cream to golden -->
+    <linearGradient id="cardGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFF8E7"/>
+      <stop offset="100%" stop-color="#FFE4B5"/>
+    </linearGradient>
+    <!-- Sun: sunrise  purple/pink top ’ coral ’ vibrant orange -->
+    <radialGradient id="sunGrad" cx="50%" cy="40%" r="65%">
+      <stop offset="0%" stop-color="#FFF0F5"/>
+      <stop offset="25%" stop-color="#E8B4D9"/>
+      <stop offset="45%" stop-color="#FFB088"/>
+      <stop offset="70%" stop-color="#FF8C42"/>
+      <stop offset="100%" stop-color="#E85D00"/>
+    </radialGradient>
+    <!-- Sun glow -->
+    <radialGradient id="sunGlow" cx="50%" cy="40%" r="75%">
+      <stop offset="0%" stop-color="#FFE4EC" stop-opacity="0.6"/>
+      <stop offset="40%" stop-color="#FFB088" stop-opacity="0.2"/>
+      <stop offset="100%" stop-color="transparent"/>
+    </radialGradient>
+    <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="0" dy="14" stdDeviation="18" flood-opacity="0.22"/>
+    </filter>
+  </defs>
+  <!-- Optional background fill (uncomment if you want full BG) -->
+  <!-- <rect width="1024" height="1024" fill="url(#bgGrad)"/> -->
+  <!-- Sun glow layer -->
+  <circle cx="512" cy="360" r="220" fill="url(#sunGlow)"/>
+  <!-- Sun (behind calendar)  sunrise colors -->
+  <circle cx="512" cy="360" r="190" fill="url(#sunGrad)"/>
+  <!-- Sun rays  warm with slight pink tint -->
+  <g stroke="#E8A0BF" stroke-width="16" stroke-linecap="round" opacity="0.9">
+    <line x1="512" y1="120" x2="512" y2="70"/>
+    <line x1="650" y1="170" x2="700" y2="130"/>
+    <line x1="720" y1="260" x2="770" y2="240"/>
+    <line x1="720" y1="360" x2="780" y2="360"/>
+    <line x1="720" y1="460" x2="770" y2="480"/>
+    <line x1="650" y1="550" x2="700" y2="590"/>
+    <line x1="374" y1="170" x2="324" y2="130"/>
+    <line x1="304" y1="260" x2="254" y2="240"/>
+    <line x1="304" y1="360" x2="244" y2="360"/>
+    <line x1="304" y1="460" x2="254" y2="480"/>
+    <line x1="374" y1="550" x2="324" y2="590"/>
+  </g>
+  <!-- Happy face  deeper orange -->
+  <g stroke="#C2410C" stroke-width="14" stroke-linecap="round" fill="none">
+    <path d="M440 350 Q470 320 500 350"/>
+    <path d="M524 350 Q554 320 584 350"/>
+    <path d="M430 400 Q512 470 594 400"/>
+  </g>
+  <!-- Calendar -->
+  <g filter="url(#shadow)">
+    <rect x="260" y="460" rx="50" width="504" height="330" fill="url(#cardGrad)"/>
+    <rect x="260" y="460" rx="50" width="504" height="100" fill="#E07C2E"/>
+  </g>
+  <!-- Rings -->
+  <rect x="360" y="430" width="60" height="90" rx="28" fill="#FFF3D1"/>
+  <rect x="604" y="430" width="60" height="90" rx="28" fill="#FFF3D1"/>
+  <!-- Check  vibrant orange -->
+  <path d="M390 630 L500 720 L640 560" stroke="#E85D00" stroke-width="34" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

@@ -1,0 +1,64 @@
+import * as FileSystem from 'expo-file-system';
+
+const FILE_NAME = 'events_notes.json';
+
+function getPath(): string {
+  return `${FileSystem.documentDirectory}${FILE_NAME}`;
+}
+
+export interface EventOrNote {
+  id: string;
+  type: 'event' | 'note';
+  date: string;
+  title: string;
+  time?: string;
+  content?: string;
+}
+
+interface EventsNotesData {
+  items: EventOrNote[];
+}
+
+async function readData(): Promise<EventsNotesData> {
+  try {
+    const path = getPath();
+    const exists = await FileSystem.getInfoAsync(path, { size: false });
+    if (!exists.exists) return { items: [] };
+    const raw = await FileSystem.readAsStringAsync(path);
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed?.items) ? { items: parsed.items } : { items: [] };
+  } catch {
+    return { items: [] };
+  }
+}
+
+async function writeData(data: EventsNotesData): Promise<void> {
+  await FileSystem.writeAsStringAsync(getPath(), JSON.stringify(data));
+}
+
+export async function getEventsAndNotesForDate(dateStr: string): Promise<EventOrNote[]> {
+  const { items } = await readData();
+  return items.filter((i) => i.date === dateStr);
+}
+
+export async function addEventOrNote(item: Omit<EventOrNote, 'id'>): Promise<EventOrNote> {
+  const data = await readData();
+  const id = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+  const newItem: EventOrNote = { ...item, id };
+  data.items.push(newItem);
+  await writeData(data);
+  return newItem;
+}
+
+export async function deleteEventOrNote(id: string): Promise<void> {
+  const data = await readData();
+  data.items = data.items.filter((i) => i.id !== id);
+  await writeData(data);
+}
+
+export function formatDateKey(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
