@@ -25,11 +25,13 @@ function formatDateKey(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
-/** Opt-in: daily motivation section and push notification. Default false. */
+/** Opt-in: daily motivation section and push notification. Requires AI Buddy to be enabled. Default false. */
 export async function getDailyMotivationEnabled(): Promise<boolean> {
   try {
     const v = await SecureStore.getItemAsync(KEY_DAILY_MOTIVATION_ENABLED);
-    return v === 'true';
+    if (v !== 'true') return false;
+    const aiSettings = await loadAIBuddySettings();
+    return aiSettings.enabled === true;
   } catch {
     return false;
   }
@@ -37,6 +39,18 @@ export async function getDailyMotivationEnabled(): Promise<boolean> {
 
 export async function setDailyMotivationEnabled(enabled: boolean): Promise<void> {
   await SecureStore.setItemAsync(KEY_DAILY_MOTIVATION_ENABLED, enabled ? 'true' : 'false');
+}
+
+/** Clear motivation preference and cached file (used when destroying profile). */
+export async function clearMotivationData(): Promise<void> {
+  try {
+    await SecureStore.setItemAsync(KEY_DAILY_MOTIVATION_ENABLED, 'false');
+    const path = getPath();
+    const exists = await FileSystem.getInfoAsync(path, { getData: false });
+    if (exists.exists) await FileSystem.deleteAsync(path, { idempotent: true });
+  } catch {
+    // ignore
+  }
 }
 
 export async function getMotivationForToday(): Promise<string | null> {
@@ -88,6 +102,34 @@ async function fetchOllamaReply(
 }
 
 /**
+ * Build a personalized context string from user profile.
+ */
+function buildPersonaContext(user: User): string {
+  const parts: string[] = [];
+  
+  if (user.preferredUsername) {
+    parts.push(`Name: ${user.preferredUsername}`);
+  }
+  if (user.lifestyleGoals?.length) {
+    parts.push(`Goals: ${user.lifestyleGoals.join(', ')}`);
+  }
+  if (user.gender && user.gender !== 'Prefer not to say') {
+    parts.push(`Gender: ${user.gender}`);
+  }
+  if (user.race && user.race !== 'Prefer not to say') {
+    parts.push(`Background: ${user.race}`);
+  }
+  if (user.country) {
+    parts.push(`Location: ${user.country}`);
+  }
+  if (user.diet && user.diet !== 'No restriction') {
+    parts.push(`Diet: ${user.diet}`);
+  }
+  
+  return parts.join('\n');
+}
+
+/**
  * Fetch a short daily motivation from AI based on user persona, goals, and optional chat context.
  * Saves result for today and returns it.
  */
@@ -104,8 +146,29 @@ export async function fetchAndSaveMotivationForToday(user: User): Promise<string
           .join('\n')
       : '';
 
-  const goals = user.lifestyleGoals?.length ? user.lifestyleGoals.join(', ') : 'general wellness';
-  const prompt = `You are Gaia, a supportive in-app assistant. Write exactly one short motivational statement (2–3 sentences max) for ${user.preferredUsername} for today. Use their name. Consider their lifestyle goals: ${goals}. Keep it warm, specific to their goals, and actionable. Do not use markdown or quotes.${recentContext ? `\n\nRecent chat context (for tone only):\n${recentContext}` : ''}`;
+  const personaContext = buildPersonaContext(user);
+  const userName = user.preferredUsername || 'friend';
+  
+  const prompt = `You are Gaia, a warm and supportive wellness companion in the MegaMood app.
+
+Your task: Write a short, powerful morning message (2-3 sentences) for ${userName} to help them feel encouraged and ready to take on their day.
+
+## About ${userName}:
+${personaContext}
+
+## Guidelines:
+- Address them by name to make it personal
+- Be encouraging and empowering—help them believe in themselves
+- Reference their specific goals or situation naturally (don't just list them)
+- Focus on THEIR strength, THEIR journey, THEIR potential
+- Make it feel like a supportive friend speaking directly to them
+- Be warm and genuine, not generic or preachy
+- No generic "Have a great day!" endings—be specific to who they are
+- Do NOT give advice or tips—just encourage and empower
+- Do NOT use markdown, quotes, or emojis
+
+${recentContext ? `## Recent conversation context (for personalization):\n${recentContext}\n` : ''}
+Write the message now:`;
 
   const reply = await fetchOllamaReply(
     settings.baseUrl,
@@ -149,7 +212,7 @@ async function scheduleMotivationNotification(motivationText: string): Promise<v
     await Notifications.scheduleNotificationAsync({
       identifier: DAILY_MOTIVATION_NOTIFICATION_ID,
       content: {
-        title: "Today's motivation from Gaia",
+        title: 'Gaia believes in you',
         body,
         data: { screen: 'Dashboard' },
       },

@@ -1,13 +1,8 @@
 import React, { useCallback, useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  useColorScheme,
-  useFocusEffect,
-} from 'react-native';
-import { colors, spacing, typography, borderRadius } from '../constants/theme';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { useTheme } from '../context/ThemeContext';
+import { useFocusEffect } from '@react-navigation/native';
+import { colors, spacing, typography, borderRadius, cardShadow } from '../constants/theme';
 import { getEventsAndNotesForDate, formatDateKey, type EventOrNote } from '../services/eventsNotesStorage';
 
 function getUpcomingEvents(): Promise<EventOrNote[]> {
@@ -25,7 +20,7 @@ function getUpcomingEvents(): Promise<EventOrNote[]> {
 }
 
 export default function UpcomingEventsBanner() {
-  const isDark = useColorScheme() === 'dark';
+  const { isDark } = useTheme();
   const [events, setEvents] = useState<EventOrNote[]>([]);
   const [dismissed, setDismissed] = useState(false);
 
@@ -87,6 +82,7 @@ const styles = StyleSheet.create({
     borderColor: colors.primaryLight,
     padding: spacing.md,
     marginBottom: spacing.lg,
+    ...cardShadow,
   },
   bannerDark: {
     backgroundColor: colors.chipSelectedDark,

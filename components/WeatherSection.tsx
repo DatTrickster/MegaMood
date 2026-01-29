@@ -8,28 +8,39 @@ import {
   StyleSheet,
   Text,
   View,
-  useColorScheme,
 } from 'react-native';
-import { colors, spacing, borderRadius } from '../constants/theme';
+import { useTheme } from '../context/ThemeContext';
+import { colors, spacing, borderRadius, weatherCardShadow } from '../constants/theme';
 import { loadWeatherLocationSettings } from '../services/weatherLocationSettings';
+import WeatherIcon from './WeatherIcon';
 import {
   fetchWeatherForecast,
   weatherCodeLabel,
-  weatherCodeIcon,
   type WeatherForecast,
 } from '../services/weatherService';
 
 export default function WeatherSection() {
-  const isDark = useColorScheme() === 'dark';
+  const { isDark } = useTheme();
   const [forecast, setForecast] = useState<WeatherForecast | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [weatherDisabled, setWeatherDisabled] = useState(false);
+  const [noLocationSet, setNoLocationSet] = useState(false);
 
   const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
+    setNoLocationSet(false);
     try {
       const locationSettings = await loadWeatherLocationSettings();
+      if (!locationSettings.weatherEnabled) {
+        setWeatherDisabled(true);
+        setForecast(null);
+        setLoading(false);
+        setRefreshing(false);
+        return;
+      }
+      setWeatherDisabled(false);
       let lat = locationSettings.latitude;
       let lon = locationSettings.longitude;
       if (locationSettings.usePreciseLocation) {
@@ -41,6 +52,15 @@ export default function WeatherSection() {
           lat = pos.coords.latitude;
           lon = pos.coords.longitude;
         }
+      }
+      const hasCity = (locationSettings.locationName?.trim() ?? '').length > 0;
+      const hasCoords = lat !== 0 || lon !== 0;
+      if (!locationSettings.usePreciseLocation && (!hasCity || !hasCoords)) {
+        setNoLocationSet(true);
+        setForecast(null);
+        setLoading(false);
+        setRefreshing(false);
+        return;
       }
       const data = await fetchWeatherForecast(lat, lon);
       setForecast(data);
@@ -63,6 +83,21 @@ export default function WeatherSection() {
   const textSecondary = isDark ? colors.onSurfaceDark : '#555';
   const textMuted = isDark ? colors.outlineDark : '#888';
 
+  if (weatherDisabled) {
+    return (
+      <View style={styles.container}>
+        <Text style={[styles.sectionTitle, { color: isDark ? colors.primaryLight : colors.primary }]}>
+          Weather
+        </Text>
+        <View style={[styles.placeholder, { backgroundColor: cardBg, borderColor: cardBorder }]}>
+          <Text style={[styles.placeholderText, { color: textMuted }]}>
+            Weather is turned off. Enable it in Settings to see the forecast.
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
   if (loading && !forecast) {
     return (
       <View style={styles.container}>
@@ -84,7 +119,11 @@ export default function WeatherSection() {
           Weather
         </Text>
         <View style={[styles.placeholder, { backgroundColor: cardBg, borderColor: cardBorder }]}>
-          <Text style={[styles.placeholderText, { color: textMuted }]}>Unable to load weather</Text>
+          <Text style={[styles.placeholderText, { color: textMuted }]}>
+            {noLocationSet
+              ? 'Add a city in Settings to see weather.'
+              : 'Unable to load weather'}
+          </Text>
         </View>
       </View>
     );
@@ -102,13 +141,14 @@ export default function WeatherSection() {
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.weatherScrollContent}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={() => load(true)} color={colors.primary} />
         }
       >
         <View style={[styles.currentCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
           <View style={styles.currentTop}>
-            <Text style={[styles.currentIcon]}>{todayCode != null ? weatherCodeIcon(todayCode) : '🌡️'}</Text>
+            <WeatherIcon code={todayCode} size={32} color={textPrimary} />
             <Text style={[styles.currentTemp, { color: textPrimary }]}>
               {Math.round(current.temperature_2m)}°
             </Text>
@@ -122,7 +162,9 @@ export default function WeatherSection() {
           const code = daily.weather_code?.[i];
           return (
             <View key={date} style={[styles.dayCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
-              <Text style={[styles.dayIcon]}>{code != null ? weatherCodeIcon(code) : '🌡️'}</Text>
+              <View style={styles.dayIconWrap}>
+                <WeatherIcon code={code} size={28} color={textPrimary} />
+              </View>
               <Text style={[styles.dayLabel, { color: textPrimary }]}>
                 {new Date(date).toLocaleDateString('en-US', { weekday: 'short' })}
               </Text>
@@ -144,17 +186,24 @@ export default function WeatherSection() {
 const styles = StyleSheet.create({
   container: {
     marginBottom: spacing.lg,
+    marginHorizontal: -spacing.lg,
+    paddingHorizontal: spacing.lg,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
     marginBottom: spacing.sm,
   },
+  weatherScrollContent: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
   placeholder: {
     padding: spacing.lg,
     alignItems: 'center',
     borderRadius: borderRadius.md,
     borderWidth: 1,
+    ...weatherCardShadow,
   },
   placeholderText: {
     marginTop: spacing.sm,
@@ -165,14 +214,12 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.md,
     borderWidth: 1,
     marginRight: spacing.sm,
+    ...weatherCardShadow,
   },
   currentTop: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-  },
-  currentIcon: {
-    fontSize: 32,
   },
   currentTemp: {
     fontSize: 36,
@@ -193,9 +240,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     marginRight: spacing.sm,
     alignItems: 'center',
+    ...weatherCardShadow,
   },
-  dayIcon: {
-    fontSize: 28,
+  dayIconWrap: {
     marginBottom: 4,
   },
   dayLabel: {

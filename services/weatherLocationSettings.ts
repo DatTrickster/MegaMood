@@ -7,14 +7,13 @@ function getPath(): string {
 }
 
 export interface WeatherLocationSettings {
+  /** When false, weather is off and location/precision are treated as disabled. */
+  weatherEnabled: boolean;
   usePreciseLocation: boolean;
   locationName: string;
   latitude: number;
   longitude: number;
 }
-
-const DEFAULT_LAT = 51.5074;
-const DEFAULT_LON = -0.1278;
 
 async function read(): Promise<WeatherLocationSettings> {
   try {
@@ -22,26 +21,29 @@ async function read(): Promise<WeatherLocationSettings> {
     const exists = await FileSystem.getInfoAsync(path);
     if (!exists.exists) {
       return {
+        weatherEnabled: true,
         usePreciseLocation: false,
-        locationName: 'London',
-        latitude: DEFAULT_LAT,
-        longitude: DEFAULT_LON,
+        locationName: '',
+        latitude: 0,
+        longitude: 0,
       };
     }
     const raw = await FileSystem.readAsStringAsync(path);
     const parsed = JSON.parse(raw);
     return {
+      weatherEnabled: parsed.weatherEnabled !== false,
       usePreciseLocation: parsed.usePreciseLocation === true,
-      locationName: typeof parsed.locationName === 'string' ? parsed.locationName : 'London',
-      latitude: typeof parsed.latitude === 'number' ? parsed.latitude : DEFAULT_LAT,
-      longitude: typeof parsed.longitude === 'number' ? parsed.longitude : DEFAULT_LON,
+      locationName: typeof parsed.locationName === 'string' ? parsed.locationName : '',
+      latitude: typeof parsed.latitude === 'number' ? parsed.latitude : 0,
+      longitude: typeof parsed.longitude === 'number' ? parsed.longitude : 0,
     };
   } catch {
     return {
+      weatherEnabled: true,
       usePreciseLocation: false,
-      locationName: 'London',
-      latitude: DEFAULT_LAT,
-      longitude: DEFAULT_LON,
+      locationName: '',
+      latitude: 0,
+      longitude: 0,
     };
   }
 }
@@ -58,11 +60,24 @@ export async function saveWeatherLocationSettings(
   settings: Partial<WeatherLocationSettings>
 ): Promise<void> {
   const current = await read();
+  const weatherEnabled = settings.weatherEnabled ?? current.weatherEnabled;
   const next: WeatherLocationSettings = {
-    usePreciseLocation: settings.usePreciseLocation ?? current.usePreciseLocation,
+    weatherEnabled,
+    usePreciseLocation: weatherEnabled ? (settings.usePreciseLocation ?? current.usePreciseLocation) : false,
     locationName: settings.locationName ?? current.locationName,
     latitude: settings.latitude ?? current.latitude,
     longitude: settings.longitude ?? current.longitude,
   };
   await write(next);
+}
+
+/** Reset weather/location settings to default (used when destroying profile). */
+export async function clearWeatherLocationSettings(): Promise<void> {
+  await write({
+    weatherEnabled: true,
+    usePreciseLocation: false,
+    locationName: '',
+    latitude: 0,
+    longitude: 0,
+  });
 }

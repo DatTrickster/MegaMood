@@ -1,5 +1,10 @@
 import * as FileSystem from 'expo-file-system';
 import type { User } from '../models/User';
+import { clearAllEventsAndNotes } from './eventsNotesStorage';
+import { clearAIBuddySettings } from './aiBuddySettingsService';
+import { clearWeatherLocationSettings } from './weatherLocationSettings';
+import { clearMotivationData } from './motivationService';
+import { clearGaiaChat } from './gaiaChatService';
 
 const USER_FILE = 'user.json';
 
@@ -43,4 +48,32 @@ export async function saveUser(user: User): Promise<void> {
   };
   const content = JSON.stringify(toSave, null, 2);
   await FileSystem.writeAsStringAsync(path, content);
+}
+
+/**
+ * Delete the user profile file. After this, loadUser() will return null.
+ */
+export async function deleteUser(): Promise<void> {
+  try {
+    const path = getUserPath();
+    const exists = await FileSystem.getInfoAsync(path, { getData: false });
+    if (exists.exists) await FileSystem.deleteAsync(path, { idempotent: true });
+  } catch {
+    // ignore
+  }
+}
+
+/**
+ * Destroy all user data and reset the app to first launch state.
+ * Deletes user profile, events/notes, AI settings, weather settings, motivation, and Gaia chat.
+ */
+export async function destroyAllUserData(): Promise<void> {
+  await Promise.all([
+    clearAllEventsAndNotes(),
+    clearAIBuddySettings(),
+    clearWeatherLocationSettings(),
+    clearMotivationData(),
+    clearGaiaChat(),
+  ]);
+  await deleteUser();
 }

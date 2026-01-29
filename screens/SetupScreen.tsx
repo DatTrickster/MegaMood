@@ -5,12 +5,12 @@ import {
   View,
   TextInput,
   TouchableOpacity,
-  useColorScheme,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
   Pressable,
 } from 'react-native';
+import { useTheme } from '../context/ThemeContext';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import {
   colors,
@@ -21,9 +21,12 @@ import {
 import {
   LIFESTYLE_GOAL_OPTIONS,
   GENDER_OPTIONS,
+  RACE_OPTIONS,
+  DIET_OPTIONS,
   type User,
   type LifestyleGoalOption,
 } from '../models/User';
+import CountryPicker from '../components/CountryPicker';
 
 function formatDateOfBirth(date: Date): string {
   return date.toLocaleDateString(undefined, {
@@ -49,13 +52,16 @@ const MIN_DATE = new Date();
 MIN_DATE.setFullYear(MAX_DATE.getFullYear() - 120);
 
 export default function SetupScreen({ onComplete }: Props) {
-  const isDark = useColorScheme() === 'dark';
+  const { isDark } = useTheme();
   const [name, setName] = useState('');
   const [surname, setSurname] = useState('');
   const [preferredUsername, setPreferredUsername] = useState('');
   const [dateOfBirth, setDateOfBirth] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [gender, setGender] = useState<string | null>(null);
+  const [race, setRace] = useState<string | null>(null);
+  const [country, setCountry] = useState('');
+  const [diet, setDiet] = useState<string | null>(null);
   const [weight, setWeight] = useState('');
   const [height, setHeight] = useState('');
   const [selectedGoals, setSelectedGoals] = useState<string[]>([]);
@@ -88,6 +94,9 @@ export default function SetupScreen({ onComplete }: Props) {
       completedAt: new Date().toISOString(),
     };
     if (gender) user.gender = gender;
+    if (race) user.race = race;
+    if (country) user.country = country;
+    if (diet) user.diet = diet;
     if (weightNum != null && !isNaN(weightNum) && weightNum > 0 && weightNum < 500) user.weight = weightNum;
     if (heightNum != null && !isNaN(heightNum) && heightNum > 0 && heightNum < 300) user.height = heightNum;
     onComplete(user);
@@ -133,6 +142,12 @@ export default function SetupScreen({ onComplete }: Props) {
           onPressDate={() => setShowDatePicker(true)}
           gender={gender}
           setGender={setGender}
+          race={race}
+          setRace={setRace}
+          country={country}
+          setCountry={setCountry}
+          diet={diet}
+          setDiet={setDiet}
           weight={weight}
           setWeight={setWeight}
           height={height}
@@ -178,6 +193,12 @@ type FormContentProps = {
   onPressDate: () => void;
   gender: string | null;
   setGender: (g: string | null) => void;
+  race: string | null;
+  setRace: (r: string | null) => void;
+  country: string;
+  setCountry: (s: string) => void;
+  diet: string | null;
+  setDiet: (d: string | null) => void;
   weight: string;
   setWeight: (s: string) => void;
   height: string;
@@ -201,6 +222,12 @@ function FormContent({
   onPressDate,
   gender,
   setGender,
+  race,
+  setRace,
+  country,
+  setCountry,
+  diet,
+  setDiet,
   weight,
   setWeight,
   height,
@@ -294,6 +321,86 @@ function FormContent({
                 },
               ]}
               onPress={() => setGender(selected ? null : opt)}
+              activeOpacity={0.7}
+            >
+              <Text
+                style={[
+                  styles.chipText,
+                  { color: isDark ? colors.onSurfaceDark : colors.onSurface },
+                ]}
+              >
+                {opt}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
+      <Text style={[styles.label, isDark && styles.textDark]}>Race / ethnicity</Text>
+      <View style={[styles.chips, styles.chipsSpaced]}>
+        {RACE_OPTIONS.map((opt) => {
+          const selected = race === opt;
+          return (
+            <TouchableOpacity
+              key={opt}
+              style={[
+                styles.chip,
+                {
+                  backgroundColor: selected
+                    ? isDark
+                      ? colors.chipSelectedDark
+                      : colors.chipSelected
+                    : isDark
+                      ? 'rgba(255,255,255,0.08)'
+                      : '#F0F0F0',
+                  borderColor: selected ? colors.primary : 'transparent',
+                },
+              ]}
+              onPress={() => setRace(selected ? null : opt)}
+              activeOpacity={0.7}
+            >
+              <Text
+                style={[
+                  styles.chipText,
+                  { color: isDark ? colors.onSurfaceDark : colors.onSurface },
+                ]}
+              >
+                {opt}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
+      <Text style={[styles.label, isDark && styles.textDark]}>Country</Text>
+      <CountryPicker
+        value={country}
+        onSelect={setCountry}
+        placeholder="Select country"
+        style={[styles.inputSpaced]}
+      />
+
+      <Text style={[styles.label, isDark && styles.textDark]}>Diet</Text>
+      <View style={[styles.chips, styles.chipsSpaced]}>
+        {DIET_OPTIONS.map((opt) => {
+          const selected = diet === opt;
+          return (
+            <TouchableOpacity
+              key={opt}
+              style={[
+                styles.chip,
+                {
+                  backgroundColor: selected
+                    ? isDark
+                      ? colors.chipSelectedDark
+                      : colors.chipSelected
+                    : isDark
+                      ? 'rgba(255,255,255,0.08)'
+                      : '#F0F0F0',
+                  borderColor: selected ? colors.primary : 'transparent',
+                },
+              ]}
+              onPress={() => setDiet(selected ? null : opt)}
               activeOpacity={0.7}
             >
               <Text

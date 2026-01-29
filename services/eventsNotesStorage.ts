@@ -41,6 +41,14 @@ export async function getEventsAndNotesForDate(dateStr: string): Promise<EventOr
   return items.filter((i) => i.date === dateStr);
 }
 
+/** Returns date keys (YYYY-MM-DD) that have at least one event or note. Used for calendar dots. */
+export async function getDatesWithItems(): Promise<string[]> {
+  const { items } = await readData();
+  const set = new Set<string>();
+  items.forEach((i) => set.add(i.date));
+  return Array.from(set);
+}
+
 export async function addEventOrNote(item: Omit<EventOrNote, 'id'>): Promise<EventOrNote> {
   const data = await readData();
   const id = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
@@ -54,6 +62,11 @@ export async function deleteEventOrNote(id: string): Promise<void> {
   const data = await readData();
   data.items = data.items.filter((i) => i.id !== id);
   await writeData(data);
+}
+
+/** Remove all events and notes (used when destroying profile). */
+export async function clearAllEventsAndNotes(): Promise<void> {
+  await writeData({ items: [] });
 }
 
 export function formatDateKey(d: Date): string {

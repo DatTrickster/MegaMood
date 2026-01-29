@@ -4,10 +4,10 @@ import {
   Text,
   StyleSheet,
   ActivityIndicator,
-  useColorScheme,
 } from 'react-native';
+import { useTheme } from '../context/ThemeContext';
 import type { User } from '../models/User';
-import { colors, spacing, typography, borderRadius } from '../constants/theme';
+import { colors, spacing, typography, borderRadius, cardShadow } from '../constants/theme';
 import {
   getMotivationForToday,
   fetchAndSaveMotivationForToday,
@@ -18,7 +18,7 @@ type Props = {
 };
 
 export default function DailyMotivationCard({ user }: Props) {
-  const isDark = useColorScheme() === 'dark';
+  const { isDark } = useTheme();
   const [text, setText] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -47,7 +47,7 @@ export default function DailyMotivationCard({ user }: Props) {
       <View style={[styles.card, isDark && styles.cardDark]}>
         <ActivityIndicator size="small" color={colors.primary} />
         <Text style={[styles.loadingText, isDark && styles.loadingTextDark]}>
-          Your motivation for today…
+          Gaia is thinking of you…
         </Text>
       </View>
     );
@@ -57,7 +57,7 @@ export default function DailyMotivationCard({ user }: Props) {
 
   return (
     <View style={[styles.card, isDark && styles.cardDark]}>
-      <Text style={[styles.label, isDark && styles.labelDark]}>Today's motivation from Gaia</Text>
+      <Text style={[styles.label, isDark && styles.labelDark]}>Good morning from Gaia</Text>
       <Text style={[styles.quote, isDark && styles.quoteDark]}>{text}</Text>
     </View>
   );
@@ -71,6 +71,7 @@ const styles = StyleSheet.create({
     borderColor: colors.outline,
     padding: spacing.md,
     marginBottom: spacing.lg,
+    ...cardShadow,
   },
   cardDark: {
     backgroundColor: colors.surfaceDark,

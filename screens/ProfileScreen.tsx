@@ -6,20 +6,24 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
-  useColorScheme,
   Pressable,
   ActivityIndicator,
   Alert,
   Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTheme } from '../context/ThemeContext';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { colors, spacing, typography, borderRadius } from '../constants/theme';
 import {
   LIFESTYLE_GOAL_OPTIONS,
   GENDER_OPTIONS,
+  RACE_OPTIONS,
+  DIET_OPTIONS,
   type User,
   type LifestyleGoalOption,
 } from '../models/User';
+import CountryPicker from '../components/CountryPicker';
 
 function formatDateOfBirth(date: Date): string {
   return date.toLocaleDateString(undefined, {
@@ -47,7 +51,8 @@ const MIN_DATE = new Date();
 MIN_DATE.setFullYear(MAX_DATE.getFullYear() - 120);
 
 export default function ProfileScreen({ user, onBack, onSave }: Props) {
-  const isDark = useColorScheme() === 'dark';
+  const { isDark } = useTheme();
+  const insets = useSafeAreaInsets();
   const [name, setName] = useState(user.name);
   const [surname, setSurname] = useState(user.surname);
   const [preferredUsername, setPreferredUsername] = useState(user.preferredUsername);
@@ -60,6 +65,9 @@ export default function ProfileScreen({ user, onBack, onSave }: Props) {
   });
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [gender, setGender] = useState<string | null>(user.gender ?? null);
+  const [race, setRace] = useState<string | null>(user.race ?? null);
+  const [country, setCountry] = useState(user.country ?? '');
+  const [diet, setDiet] = useState<string | null>(user.diet ?? null);
   const [weight, setWeight] = useState(user.weight != null ? String(user.weight) : '');
   const [height, setHeight] = useState(user.height != null ? String(user.height) : '');
   const [selectedGoals, setSelectedGoals] = useState<string[]>(user.lifestyleGoals ?? []);
@@ -95,6 +103,9 @@ export default function ProfileScreen({ user, onBack, onSave }: Props) {
       dateOfBirth: toISODateString(dateOfBirth),
       lifestyleGoals: selectedGoals,
       gender: gender ?? undefined,
+      race: race ?? undefined,
+      country: country || undefined,
+      diet: diet ?? undefined,
       weight: weightNum != null && !isNaN(weightNum) && weightNum > 0 && weightNum < 500 ? weightNum : undefined,
       height: heightNum != null && !isNaN(heightNum) && heightNum > 0 && heightNum < 300 ? heightNum : undefined,
     };
@@ -124,9 +135,15 @@ export default function ProfileScreen({ user, onBack, onSave }: Props) {
     },
   ];
 
+  const headerStyle = {
+    paddingTop: insets.top + spacing.xs,
+    paddingBottom: spacing.sm,
+    paddingHorizontal: spacing.md,
+  };
+
   return (
     <View style={[styles.container, isDark && styles.containerDark]}>
-      <View style={[styles.header, isDark && styles.headerDark]}>
+      <View style={[styles.header, isDark && styles.headerDark, headerStyle]}>
         <TouchableOpacity onPress={onBack} style={styles.backBtn}>
           <Text style={[styles.backText, isDark && styles.backTextDark]}>Back</Text>
         </TouchableOpacity>
@@ -149,6 +166,7 @@ export default function ProfileScreen({ user, onBack, onSave }: Props) {
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
       >
         <Text style={[styles.label, isDark && styles.textDark]}>Name</Text>
         <TextInput
@@ -219,6 +237,55 @@ export default function ProfileScreen({ user, onBack, onSave }: Props) {
             );
           })}
         </View>
+        <Text style={[styles.label, isDark && styles.textDark]}>Race / ethnicity</Text>
+        <View style={styles.chips}>
+          {RACE_OPTIONS.map((opt) => {
+            const selected = race === opt;
+            return (
+              <TouchableOpacity
+                key={opt}
+                style={[
+                  styles.chip,
+                  {
+                    backgroundColor: selected ? (isDark ? colors.chipSelectedDark : colors.chipSelected) : isDark ? 'rgba(255,255,255,0.08)' : '#F0F0F0',
+                    borderColor: selected ? colors.primary : 'transparent',
+                  },
+                ]}
+                onPress={() => setRace(selected ? null : opt)}
+              >
+                <Text style={[styles.chipText, { color: isDark ? colors.onSurfaceDark : colors.onSurface }]}>{opt}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+        <Text style={[styles.label, isDark && styles.textDark]}>Country</Text>
+        <CountryPicker
+          value={country}
+          onSelect={setCountry}
+          placeholder="Select country"
+          style={{ marginBottom: spacing.md }}
+        />
+        <Text style={[styles.label, isDark && styles.textDark]}>Diet</Text>
+        <View style={styles.chips}>
+          {DIET_OPTIONS.map((opt) => {
+            const selected = diet === opt;
+            return (
+              <TouchableOpacity
+                key={opt}
+                style={[
+                  styles.chip,
+                  {
+                    backgroundColor: selected ? (isDark ? colors.chipSelectedDark : colors.chipSelected) : isDark ? 'rgba(255,255,255,0.08)' : '#F0F0F0',
+                    borderColor: selected ? colors.primary : 'transparent',
+                  },
+                ]}
+                onPress={() => setDiet(selected ? null : opt)}
+              >
+                <Text style={[styles.chipText, { color: isDark ? colors.onSurfaceDark : colors.onSurface }]}>{opt}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
         <Text style={[styles.label, isDark && styles.textDark]}>Weight (kg)</Text>
         <TextInput
           style={inputStyle}
@@ -270,12 +337,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
+    backgroundColor: colors.background,
     borderBottomWidth: 1,
     borderBottomColor: colors.outline,
+    zIndex: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  headerDark: { borderBottomColor: colors.outlineDark },
+  headerDark: {
+    backgroundColor: colors.backgroundDark,
+    borderBottomColor: colors.outlineDark,
+  },
   backBtn: { minWidth: 60 },
   backText: { ...typography.labelLarge, color: colors.primary },
   backTextDark: { color: colors.primaryLight },

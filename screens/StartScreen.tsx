@@ -3,10 +3,10 @@ import {
   StyleSheet,
   Text,
   View,
-  useColorScheme,
   Pressable,
   Dimensions,
 } from 'react-native';
+import { useTheme } from '../context/ThemeContext';
 import Svg, { Path } from 'react-native-svg';
 import { colors, spacing, typography } from '../constants/theme';
 import MegaMoodLogo from '../components/MegaMoodLogo';
@@ -17,13 +17,28 @@ type StartScreenProps = {
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
+// Light mode – warm orange/yellow
+const LIGHT_WAVE_COLORS = {
+  wave1: '#FFE08A',
+  wave2: '#FFD36A',
+  wave3: '#FF8A1F',
+};
+
+// Dark mode – GitHub-inspired cool grays
+const DARK_WAVE_COLORS = {
+  wave1: '#21262d',
+  wave2: '#30363d',
+  wave3: '#484f58',
+};
+
 export default function StartScreen({ onGetStarted }: StartScreenProps) {
-  const isDark = useColorScheme() === 'dark';
+  const { isDark } = useTheme();
+  const waveColors = isDark ? DARK_WAVE_COLORS : LIGHT_WAVE_COLORS;
 
   return (
-    <View style={styles.container}>
-      {/* Solid white top */}
-      <View style={styles.whiteBg} />
+    <View style={[styles.container, isDark && styles.containerDark]}>
+      {/* Top background – white in light mode, dark in dark mode */}
+      <View style={[styles.whiteBg, isDark && styles.whiteBgDark]} />
       {/* Wave – inward curve toward top, dip at middle-right */}
       <View style={styles.wavesWrap} pointerEvents="none">
         <Svg
@@ -36,17 +51,17 @@ export default function StartScreen({ onGetStarted }: StartScreenProps) {
           {/* Back – left down a little, inward dip, rises toward right */}
           <Path
             d="M0 200 L0 130 Q280 175 400 70 L400 200 Z"
-            fill="#FFE08A"
+            fill={waveColors.wave1}
           />
           {/* Middle – left down a little, inward dip, rises toward right */}
           <Path
             d="M0 200 L0 162 Q280 190 400 110 L400 200 Z"
-            fill="#FFD36A"
+            fill={waveColors.wave2}
           />
           {/* Front – left down a little, inward dip, rises toward right */}
           <Path
             d="M0 200 L0 188 Q280 200 400 155 L400 200 Z"
-            fill="#FF8A1F"
+            fill={waveColors.wave3}
           />
         </Svg>
       </View>
@@ -80,9 +95,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: spacing.lg,
   },
+  containerDark: {
+    backgroundColor: colors.backgroundDark,
+  },
   whiteBg: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: '#FFFFFF',
+  },
+  whiteBgDark: {
+    backgroundColor: colors.backgroundDark,
   },
   wavesWrap: {
     ...StyleSheet.absoluteFillObject,
