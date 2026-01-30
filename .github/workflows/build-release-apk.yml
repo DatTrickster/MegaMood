@@ -1,5 +1,6 @@
-# Build signed release APK. Runs only on tag push (v*) or manual dispatch.
-# Checks (expo-doctor, etc.) run first; then Android release build.
+# Build signed release APK on tag push (v*) or manual dispatch.
+# On tag: runs checks, builds APK, creates GitHub Release and attaches the APK.
+# On manual run: builds APK and uploads as workflow artifact.
 # Secrets: KEYSTORE_BASE64, UPLOAD_STORE_PASSWORD, UPLOAD_KEY_ALIAS, UPLOAD_KEY_PASSWORD
 name: Build Release APK
 
@@ -82,6 +83,17 @@ jobs:
         with:
           name: megamood-release-apk-${{ github.ref_name }}
           path: android/app/build/outputs/apk/release/app-release.apk
+
+      - name: Create GitHub Release and attach APK
+        if: github.ref_type == 'tag'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
+          files: android/app/build/outputs/apk/release/app-release.apk
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload Gradle problems report on failure
         if: failure()
