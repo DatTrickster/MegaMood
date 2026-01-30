@@ -55,7 +55,10 @@ function withAndroidReleaseSigning(config) {
     }
 `;
 
-    let buildGradle = config.modResults;
+    // modResults is { path, contents, language } in newer @expo/config-plugins
+    const raw = config.modResults;
+    let buildGradle = typeof raw === 'string' ? raw : (raw && raw.contents);
+    if (typeof buildGradle !== 'string') return config;
 
     // Insert signingConfigs inside android { }, right after "android {"
     const androidBlockStart = buildGradle.indexOf('android {');
@@ -78,7 +81,11 @@ function withAndroidReleaseSigning(config) {
         buildGradle.slice(lineEnd);
     }
 
-    config.modResults = buildGradle;
+    if (typeof raw === 'string') {
+      config.modResults = buildGradle;
+    } else {
+      raw.contents = buildGradle;
+    }
     return config;
   });
 }
