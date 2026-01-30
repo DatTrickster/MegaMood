@@ -38,6 +38,8 @@ jobs:
   build:
     needs: check
     runs-on: ubuntu-latest
+    permissions:
+      contents: write   # create/update releases and upload assets
     env:
       MEGAMOOD_UPLOAD_STORE_FILE: release.keystore
       MEGAMOOD_UPLOAD_STORE_PASSWORD: ${{ secrets.UPLOAD_STORE_PASSWORD }}
