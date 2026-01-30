@@ -1,4 +1,4 @@
-import * as FileSystem from 'expo-file-system';
+import { File, Paths } from 'expo-file-system';
 import type { User } from '../models/User';
 import { clearAllEventsAndNotes } from './eventsNotesStorage';
 import { clearAIBuddySettings } from './aiBuddySettingsService';
@@ -9,8 +9,8 @@ import { clearAllPlannerItems } from './plannerStorage';
 
 const USER_FILE = 'user.json';
 
-function getUserPath(): string {
-  return `${FileSystem.documentDirectory}${USER_FILE}`;
+function getUserFile(): File {
+  return new File(Paths.document, USER_FILE);
 }
 
 /**
@@ -19,10 +19,9 @@ function getUserPath(): string {
  */
 export async function loadUser(): Promise<User | null> {
   try {
-    const path = getUserPath();
-    const exists = await FileSystem.getInfoAsync(path, { getData: false });
-    if (!exists.exists) return null;
-    const content = await FileSystem.readAsStringAsync(path);
+    const file = getUserFile();
+    if (!file.exists) return null;
+    const content = await file.text();
     const raw = JSON.parse(content) as Record<string, unknown>;
     // Backward compat: old profiles had "age", new ones have "dateOfBirth"
     if (raw.dateOfBirth == null && typeof raw.age === 'number') {
@@ -32,7 +31,7 @@ export async function loadUser(): Promise<User | null> {
       d.setDate(1);
       raw.dateOfBirth = d.toISOString().slice(0, 10);
     }
-    return raw as User;
+    return raw as unknown as User;
   } catch {
     return null;
   }
@@ -42,13 +41,12 @@ export async function loadUser(): Promise<User | null> {
  * Save user profile to local JSON file (offline only).
  */
 export async function saveUser(user: User): Promise<void> {
-  const path = getUserPath();
   const toSave: User = {
     ...user,
     completedAt: user.completedAt || new Date().toISOString(),
   };
-  const content = JSON.stringify(toSave, null, 2);
-  await FileSystem.writeAsStringAsync(path, content);
+  const file = getUserFile();
+  file.write(JSON.stringify(toSave, null, 2));
 }
 
 /**
@@ -56,9 +54,8 @@ export async function saveUser(user: User): Promise<void> {
  */
 export async function deleteUser(): Promise<void> {
   try {
-    const path = getUserPath();
-    const exists = await FileSystem.getInfoAsync(path, { getData: false });
-    if (exists.exists) await FileSystem.deleteAsync(path, { idempotent: true });
+    const file = getUserFile();
+    if (file.exists) file.delete();
   } catch {
     // ignore
   }

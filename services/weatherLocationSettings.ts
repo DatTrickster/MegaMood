@@ -1,9 +1,9 @@
-import * as FileSystem from 'expo-file-system';
+import { File, Paths } from 'expo-file-system';
 
 const FILE_NAME = 'weather_location.json';
 
-function getPath(): string {
-  return `${FileSystem.documentDirectory}${FILE_NAME}`;
+function getFile(): File {
+  return new File(Paths.document, FILE_NAME);
 }
 
 export interface WeatherLocationSettings {
@@ -17,9 +17,8 @@ export interface WeatherLocationSettings {
 
 async function read(): Promise<WeatherLocationSettings> {
   try {
-    const path = getPath();
-    const exists = await FileSystem.getInfoAsync(path);
-    if (!exists.exists) {
+    const file = getFile();
+    if (!file.exists) {
       return {
         weatherEnabled: true,
         usePreciseLocation: false,
@@ -28,7 +27,7 @@ async function read(): Promise<WeatherLocationSettings> {
         longitude: 0,
       };
     }
-    const raw = await FileSystem.readAsStringAsync(path);
+    const raw = await file.text();
     const parsed = JSON.parse(raw);
     return {
       weatherEnabled: parsed.weatherEnabled !== false,
@@ -49,7 +48,8 @@ async function read(): Promise<WeatherLocationSettings> {
 }
 
 async function write(settings: WeatherLocationSettings): Promise<void> {
-  await FileSystem.writeAsStringAsync(getPath(), JSON.stringify(settings));
+  const file = getFile();
+  file.write(JSON.stringify(settings));
 }
 
 export async function loadWeatherLocationSettings(): Promise<WeatherLocationSettings> {

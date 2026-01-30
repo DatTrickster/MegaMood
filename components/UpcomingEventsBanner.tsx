@@ -12,7 +12,7 @@ function getUpcomingEvents(): Promise<EventOrNote[]> {
   const tomorrowStr = formatDateKey(tomorrow);
   return Promise.all([
     getEventsAndNotesForDate(today),
-    getEventsAndNotesForDate(tomorrow),
+    getEventsAndNotesForDate(tomorrowStr),
   ]).then(([todayList, tomorrowList]) => {
     const events = [...todayList, ...tomorrowList].filter((i) => i.type === 'event');
     return events;

@@ -1,9 +1,9 @@
-import * as FileSystem from 'expo-file-system';
+import { File, Paths } from 'expo-file-system';
 
 const FILE_NAME = 'events_notes.json';
 
-function getPath(): string {
-  return `${FileSystem.documentDirectory}${FILE_NAME}`;
+function getFile(): File {
+  return new File(Paths.document, FILE_NAME);
 }
 
 export interface EventOrNote {
@@ -21,10 +21,9 @@ interface EventsNotesData {
 
 async function readData(): Promise<EventsNotesData> {
   try {
-    const path = getPath();
-    const exists = await FileSystem.getInfoAsync(path, { size: false });
-    if (!exists.exists) return { items: [] };
-    const raw = await FileSystem.readAsStringAsync(path);
+    const file = getFile();
+    if (!file.exists) return { items: [] };
+    const raw = await file.text();
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed?.items) ? { items: parsed.items } : { items: [] };
   } catch {
@@ -33,7 +32,8 @@ async function readData(): Promise<EventsNotesData> {
 }
 
 async function writeData(data: EventsNotesData): Promise<void> {
-  await FileSystem.writeAsStringAsync(getPath(), JSON.stringify(data));
+  const file = getFile();
+  file.write(JSON.stringify(data));
 }
 
 export async function getEventsAndNotesForDate(dateStr: string): Promise<EventOrNote[]> {

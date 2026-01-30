@@ -143,7 +143,7 @@ export default function WeatherSection() {
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.weatherScrollContent}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => load(true)} color={colors.primary} />
+          <RefreshControl refreshing={refreshing} onRefresh={() => load(true)} colors={[colors.primary]} />
         }
       >
         <View style={[styles.currentCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>

@@ -1,11 +1,11 @@
-import * as FileSystem from 'expo-file-system';
+import { File, Paths } from 'expo-file-system';
 
 export type AppearancePreference = 'system' | 'light' | 'dark';
 
 const THEME_FILE = 'appearance.json';
 
-function getThemePath(): string {
-  return `${FileSystem.documentDirectory}${THEME_FILE}`;
+function getThemeFile(): File {
+  return new File(Paths.document, THEME_FILE);
 }
 
 /**
@@ -13,10 +13,9 @@ function getThemePath(): string {
  */
 export async function getAppearance(): Promise<AppearancePreference> {
   try {
-    const path = getThemePath();
-    const exists = await FileSystem.getInfoAsync(path, { getData: false });
-    if (!exists.exists) return 'system';
-    const content = await FileSystem.readAsStringAsync(path);
+    const file = getThemeFile();
+    if (!file.exists) return 'system';
+    const content = await file.text();
     const raw = JSON.parse(content) as { preference?: string };
     if (raw.preference === 'light' || raw.preference === 'dark' || raw.preference === 'system') {
       return raw.preference;
@@ -31,6 +30,6 @@ export async function getAppearance(): Promise<AppearancePreference> {
  * Save appearance preference.
  */
 export async function setAppearance(preference: AppearancePreference): Promise<void> {
-  const path = getThemePath();
-  await FileSystem.writeAsStringAsync(path, JSON.stringify({ preference }));
+  const file = getThemeFile();
+  file.write(JSON.stringify({ preference }));
 }

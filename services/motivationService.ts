@@ -1,5 +1,6 @@
-import * as FileSystem from 'expo-file-system';
+import { File, Paths } from 'expo-file-system';
 import * as Notifications from 'expo-notifications';
+import { SchedulableTriggerInputTypes } from 'expo-notifications';
 import * as SecureStore from 'expo-secure-store';
 import type { User } from '../models/User';
 import { loadAIBuddySettings } from './aiBuddySettingsService';
@@ -9,8 +10,8 @@ const MOTIVATION_FILE = 'daily_motivation.json';
 const KEY_DAILY_MOTIVATION_ENABLED = 'MEGAMOOD_DAILY_MOTIVATION_ENABLED';
 const DAILY_MOTIVATION_NOTIFICATION_ID = 'daily-motivation-gaia';
 
-function getPath(): string {
-  return `${FileSystem.documentDirectory}${MOTIVATION_FILE}`;
+function getMotivationFile(): File {
+  return new File(Paths.document, MOTIVATION_FILE);
 }
 
 export interface MotivationCache {
@@ -45,9 +46,8 @@ export async function setDailyMotivationEnabled(enabled: boolean): Promise<void>
 export async function clearMotivationData(): Promise<void> {
   try {
     await SecureStore.setItemAsync(KEY_DAILY_MOTIVATION_ENABLED, 'false');
-    const path = getPath();
-    const exists = await FileSystem.getInfoAsync(path, { getData: false });
-    if (exists.exists) await FileSystem.deleteAsync(path, { idempotent: true });
+    const file = getMotivationFile();
+    if (file.exists) file.delete();
   } catch {
     // ignore
   }
@@ -55,10 +55,9 @@ export async function clearMotivationData(): Promise<void> {
 
 export async function getMotivationForToday(): Promise<string | null> {
   try {
-    const path = getPath();
-    const exists = await FileSystem.getInfoAsync(path);
-    if (!exists.exists) return null;
-    const raw = await FileSystem.readAsStringAsync(path);
+    const file = getMotivationFile();
+    if (!file.exists) return null;
+    const raw = await file.text();
     const parsed = JSON.parse(raw) as MotivationCache;
     const today = formatDateKey(new Date());
     if (parsed.date !== today) return null;
@@ -70,10 +69,8 @@ export async function getMotivationForToday(): Promise<string | null> {
 
 async function saveMotivationForToday(text: string): Promise<void> {
   const today = formatDateKey(new Date());
-  await FileSystem.writeAsStringAsync(
-    getPath(),
-    JSON.stringify({ date: today, text })
-  );
+  const file = getMotivationFile();
+  file.write(JSON.stringify({ date: today, text }));
 }
 
 async function fetchOllamaReply(
@@ -192,7 +189,12 @@ Write the message now:`;
 async function scheduleMotivationNotification(motivationText: string): Promise<void> {
   try {
     Notifications.setNotificationHandler({
-      handleNotification: async () => ({ shouldShowAlert: true, shouldPlaySound: true, shouldSetBadge: false }),
+      handleNotification: async () => ({
+        shouldShowBanner: true,
+        shouldShowList: true,
+        shouldPlaySound: true,
+        shouldSetBadge: false,
+      }),
     });
     const { status } = await Notifications.requestPermissionsAsync();
     if (status !== 'granted') return;
@@ -216,7 +218,7 @@ async function scheduleMotivationNotification(motivationText: string): Promise<v
         body,
         data: { screen: 'Dashboard' },
       },
-      trigger,
+      trigger: { type: SchedulableTriggerInputTypes.DATE, date: trigger },
     });
   } catch {
     // ignore
