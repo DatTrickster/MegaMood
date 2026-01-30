@@ -4,9 +4,7 @@ name: CI (checks)
 
 on:
   push:
-    branches: [main, master]
   pull_request:
-    branches: [main, master]
 
 jobs:
   check:
@@ -14,6 +12,13 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Gitleaks (secret detection)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
