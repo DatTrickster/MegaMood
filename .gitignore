@@ -12,11 +12,6 @@ expo-env.d.ts
 # Native
 .kotlin/
 *.orig.*
-*.jks
-*.p8
-*.p12
-*.key
-*.mobileprovision
 
 # Metro
 .metro-health-check*
@@ -28,10 +23,21 @@ yarn-error.*
 
 # macOS
 .DS_Store
-*.pem
 
-# local env files
+# Critical / secrets (never commit)
+.env
+.env.*
 .env*.local
+android-release-signing.properties
+*.keystore
+*.jks
+*.p8
+*.p12
+*.key
+*.pem
+*.mobileprovision
+google-services.json
+GoogleService-Info.plist
 
 # typescript
 *.tsbuildinfo

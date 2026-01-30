@@ -1,0 +1,34 @@
+# Runs first on every push/PR: expo-doctor and checks.
+# Android builds run only on tag push (v*) via build-release-apk.yml.
+name: CI (checks)
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Expo Doctor (dependency and config checks)
+        run: npx expo-doctor
+
+      - name: TypeScript check
+        run: npx tsc --noEmit
+
+      - name: Expo install check (SDK version alignment)
+        run: npx expo install --check

@@ -16,7 +16,8 @@
       "supportsTablet": true,
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "MegaMood uses your location to show weather for your area when \"Use precise location\" is enabled in Settings."
-      }
+      },
+      "bundleIdentifier": "com.anonymous.MegaMood"
     },
     "android": {
       "permissions": [
